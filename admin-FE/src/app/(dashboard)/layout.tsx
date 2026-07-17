@@ -40,7 +40,9 @@ export default function DashboardLayout({
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
-          <p className="text-sm font-medium">Yun Shang Admin</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-icon.png" alt="Casa Yun" className="h-6 w-6" />
+          <p className="text-sm font-medium">Casa Yun Admin</p>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
           {children}

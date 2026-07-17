@@ -71,6 +71,8 @@ export default function OrderDocumentPage({
         {/* Letterhead */}
         <div className="flex items-start justify-between border-b border-black pb-6">
           <div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-dark.png" alt="Casa Yun" className="h-7 w-auto mb-2 print:h-6" />
             <h1 className="text-xl font-bold">{company.name}</h1>
             <p>{company.address}</p>
             {company.phone && <p>Tel: {company.phone}</p>}

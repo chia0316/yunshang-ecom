@@ -180,7 +180,7 @@ const HomePage: React.FC = () => {
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">What Our Customers Say</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Real reviews from real customers who love their Yun Shang furniture
+              Real reviews from real customers who love their Casa Yun furniture
             </p>
           </div>
           

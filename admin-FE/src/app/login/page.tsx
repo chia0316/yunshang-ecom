@@ -40,7 +40,9 @@ export default function LoginPage() {
     <div className="flex flex-1 items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Yun Shang Admin</CardTitle>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-dark.png" alt="Casa Yun" className="h-8 w-auto mb-2" />
+          <CardTitle className="text-xl">Casa Yun Admin</CardTitle>
           <CardDescription>Sign in to manage your store</CardDescription>
         </CardHeader>
         <CardContent>

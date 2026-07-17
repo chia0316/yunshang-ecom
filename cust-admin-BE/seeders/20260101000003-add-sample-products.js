@@ -34,7 +34,7 @@ module.exports = {
       {
         sku: 'CYL06-I160',
         name: 'Yoga Bed (1800x2000mm)',
-        brand: 'Lunor',
+        brand: 'Lunora',
         category_id: categoryId['Beds & Mattresses'],
         short_description:
           'Smart yoga bed with 12-motor system, back/leg adjustment, and TPEE comfort layer',
@@ -51,7 +51,7 @@ module.exports = {
           '12 motor',
           'OKIN',
           'TPEE',
-          'Lunor'
+          'Lunora'
         ],
         image_filenames: ['CYL06-I160.png'],
         is_featured: true,
@@ -62,7 +62,7 @@ module.exports = {
       {
         sku: 'CYL06-N935',
         name: 'Lumbar Support Mattress (1500x2000mm)',
-        brand: 'Lunor',
+        brand: 'Lunora',
         category_id: categoryId['Beds & Mattresses'],
         short_description:
           'Smart lumbar support mattress with 3-motor system and latex comfort layer',
@@ -79,7 +79,7 @@ module.exports = {
           '3 motor',
           'OKIN',
           'latex',
-          'Lunor'
+          'Lunora'
         ],
         image_filenames: ['CYL06-N935.png'],
         is_featured: false,
@@ -90,7 +90,7 @@ module.exports = {
       {
         sku: 'CYL06-RB01-R',
         name: 'Rotating Bed (1000x2000mm, Right Rotation)',
-        brand: 'Lunor',
+        brand: 'Lunora',
         category_id: categoryId['Beds & Mattresses'],
         short_description:
           'Rotating bed with right-rotation entry/exit, 4-motor system, and tech leather backrest',
@@ -107,7 +107,7 @@ module.exports = {
           '4 motor',
           'OKIN',
           'tech leather',
-          'Lunor'
+          'Lunora'
         ],
         image_filenames: ['CYL06-RB01-R.png'],
         is_featured: false,
@@ -118,7 +118,7 @@ module.exports = {
       {
         sku: 'CYL06-T300',
         name: 'Turning Care Bed (1050x2000mm)',
-        brand: 'Lunor',
+        brand: 'Lunora',
         category_id: categoryId['Beds & Mattresses'],
         short_description:
           'Rotating bed with right-rotation entry/exit, 4-motor system, and tech leather backrest',
@@ -135,7 +135,7 @@ module.exports = {
           'OKIN',
           'wooden guardrail',
           'TPEE',
-          'Lunor'
+          'Lunora'
         ],
         image_filenames: ['CYL06-T300.png'],
         is_featured: false,
@@ -146,7 +146,7 @@ module.exports = {
       {
         sku: 'CYL06-Server',
         name: 'Saihui Walker (Medium)',
-        brand: 'Lunor',
+        brand: 'Lunora',
         category_id: categoryId['Beds & Mattresses'],
         short_description:
           'Medium-size mobility walker with 150kg load capacity, brake casters, and shopping basket',
@@ -156,7 +156,7 @@ module.exports = {
         sale_price: null,
         stock_qty: 15,
         weight_kg: 7.0,
-        tags: ['walker', 'mobility aid', 'saihui', 'brake casters', 'Lunor'],
+        tags: ['walker', 'mobility aid', 'saihui', 'brake casters', 'Lunora'],
         image_filenames: ['CYL06-Server.png'],
         is_featured: false,
         is_active: true,

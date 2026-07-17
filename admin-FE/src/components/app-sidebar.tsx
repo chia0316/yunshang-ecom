@@ -47,12 +47,18 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-semibold">
-            YS
-          </div>
-          <span className="font-semibold group-data-[collapsible=icon]:hidden">
-            Yun Shang
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-icon.png"
+            alt="Casa Yun"
+            className="h-8 w-8 shrink-0 group-data-[collapsible=icon]:block hidden"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-dark.png"
+            alt="Casa Yun"
+            className="h-7 w-auto group-data-[collapsible=icon]:hidden"
+          />
         </div>
       </SidebarHeader>
       <SidebarContent>

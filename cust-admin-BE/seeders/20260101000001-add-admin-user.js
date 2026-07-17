@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 
 module.exports = {
   up: async (queryInterface) => {
-    const email = process.env.ADMIN_EMAIL || 'admin@yunshang.sg';
+    const email = process.env.ADMIN_EMAIL || 'admin@yunshang.com.sg';
     const password = process.env.ADMIN_PASSWORD || 'ChangeMe@123';
 
     await queryInterface.bulkInsert(

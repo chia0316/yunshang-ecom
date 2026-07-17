@@ -9,12 +9,7 @@ const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">YS</span>
-              </div>
-              <span className="font-bold text-xl">Yun Shang</span>
-            </div>
+            <img src="/logo-light.png" alt="Casa Yun" className="h-8 w-auto" />
             <p className="text-gray-300 text-sm leading-relaxed">
               Crafting beautiful furniture for modern homes. Quality, style, and comfort in every piece.
             </p>
@@ -63,7 +58,7 @@ const Footer: React.FC = () => {
               </div>
               <div className="flex items-center space-x-2">
                 <Mail className="w-4 h-4 text-amber-500" />
-                <span className="text-gray-300 text-sm">hello@yunshang.sg</span>
+                <span className="text-gray-300 text-sm">hello@casayun.sg</span>
               </div>
             </div>
           </div>
@@ -71,7 +66,7 @@ const Footer: React.FC = () => {
 
         <div className="border-t border-gray-700 mt-8 pt-8 text-center">
           <p className="text-gray-400 text-sm">
-            © 2026 Yun Shang. All rights reserved.
+            © 2026 Casa Yun. All rights reserved.
           </p>
         </div>
       </div>

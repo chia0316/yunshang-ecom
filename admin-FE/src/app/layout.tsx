@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Yun Shang Admin",
-  description: "Yun Shang furniture store admin dashboard",
+  title: "Casa Yun Admin",
+  description: "Casa Yun furniture store admin dashboard",
 };
 
 export default function RootLayout({
