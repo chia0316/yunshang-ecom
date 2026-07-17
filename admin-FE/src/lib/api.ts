@@ -1,0 +1,62 @@
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("yunshang_admin_token");
+}
+
+interface ApiOptions extends RequestInit {
+  auth?: boolean;
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options: ApiOptions = {}
+): Promise<T> {
+  const { auth = true, headers, ...rest } = options;
+  const finalHeaders: Record<string, string> = {
+    ...(headers as Record<string, string>),
+  };
+
+  const isFormData = rest.body instanceof FormData;
+  if (!isFormData) {
+    finalHeaders["Content-Type"] = "application/json";
+  }
+
+  if (auth) {
+    const token = getToken();
+    if (token) {
+      finalHeaders["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
+  const res = await fetch(`${API_URL}${path}`, {
+    ...rest,
+    headers: finalHeaders,
+  });
+
+  const contentType = res.headers.get("content-type");
+  const data = contentType?.includes("application/json")
+    ? await res.json()
+    : undefined;
+
+  if (!res.ok) {
+    throw new ApiError(data?.error || "Request failed", res.status);
+  }
+
+  return data as T;
+}
+
+export function getProductImageUrl(filename: string): string {
+  return `${API_URL}/static/images/${filename}`;
+}
+
+export { API_URL };

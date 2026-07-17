@@ -1,0 +1,24 @@
+version: "3.7"
+
+services:
+  db:
+    image: "postgres:13.7-alpine"
+    volumes:
+      - "ap_psql_data:/var/lib/postgresql/data"
+    networks:
+      - ap_net
+    environment: # This settings will setup the database and users
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: ap_development
+    ports:
+      - 5432:5432
+
+volumes:
+  ap_psql_data:
+    driver: local
+
+networks:
+  ap_net:
+    name: ap_net
+    driver: bridge
