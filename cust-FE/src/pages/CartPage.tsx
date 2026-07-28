@@ -1,13 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Minus, Plus, X, ShoppingBag, ArrowLeft, Tag } from 'lucide-react';
+import { Minus, Plus, X, ShoppingBag, ArrowLeft, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAppliedCoupon } from '../hooks/useAppliedCoupon';
 import { useFreeDeliveryThreshold } from '../hooks/useFreeDeliveryThreshold';
+import { apiFetch } from '../lib/api';
+import type { AvailableCoupon } from '../lib/types';
+
+const describeCoupon = (c: AvailableCoupon) => {
+  const amount = c.discount_type === 'percent' ? `${c.discount_value}% off` : `$${c.discount_value.toFixed(2)} off`;
+  return c.min_order_amount ? `${amount} orders $${c.min_order_amount.toFixed(2)}+` : amount;
+};
 
 const CartPage: React.FC = () => {
-  const { state, dispatch } = useCart();
+  const {
+    state,
+    updateQuantity: updateQuantityCtx,
+    removeFromCart,
+    applyCoupon: applyCouponCtx,
+    removeCoupon: removeCouponCtx,
+  } = useCart();
   const [couponInput, setCouponInput] = useState('');
+  const [availableCoupons, setAvailableCoupons] = useState<AvailableCoupon[]>([]);
+  const [showAvailable, setShowAvailable] = useState(false);
 
   const subtotal = state.total;
   const freeDeliveryThreshold = useFreeDeliveryThreshold();
@@ -16,22 +31,33 @@ const CartPage: React.FC = () => {
   const shipping = subtotal >= freeDeliveryThreshold ? 0 : 50;
   const total = Math.max(subtotal + shipping - discountAmount, 0);
 
+  useEffect(() => {
+    apiFetch<AvailableCoupon[]>('/api/coupons/available', { auth: false })
+      .then(setAvailableCoupons)
+      .catch(() => undefined);
+  }, []);
+
   const updateQuantity = (id: number, quantity: number) => {
-    dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } });
+    updateQuantityCtx(id, quantity);
   };
 
   const removeItem = (id: number) => {
-    dispatch({ type: 'REMOVE_FROM_CART', payload: id });
+    removeFromCart(id);
   };
 
   const applyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
     if (!couponInput.trim()) return;
-    dispatch({ type: 'APPLY_COUPON', payload: couponInput.trim().toUpperCase() });
+    applyCouponCtx(couponInput.trim().toUpperCase());
+  };
+
+  const applyCouponCode = (code: string) => {
+    applyCouponCtx(code);
+    setShowAvailable(false);
   };
 
   const removeCoupon = () => {
-    dispatch({ type: 'REMOVE_COUPON' });
+    removeCouponCtx();
     setCouponInput('');
   };
 
@@ -162,6 +188,50 @@ const CartPage: React.FC = () => {
               </div>
             )}
             {couponError && <p className="text-sm text-red-600 mt-2">{couponError}</p>}
+
+            {!coupon && availableCoupons.length > 0 && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAvailable(!showAvailable)}
+                  className="flex items-center text-sm text-amber-600 hover:text-amber-700 font-medium"
+                >
+                  {showAvailable ? 'Hide' : 'View'} available codes ({availableCoupons.length})
+                  {showAvailable ? (
+                    <ChevronUp className="w-4 h-4 ml-1" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 ml-1" />
+                  )}
+                </button>
+                {showAvailable && (
+                  <div className="mt-2 space-y-2">
+                    {availableCoupons.map((c) => (
+                      <div
+                        key={c.code}
+                        className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"
+                      >
+                        <div>
+                          <span className="font-mono font-medium text-sm text-gray-900">{c.code}</span>
+                          <p className="text-xs text-gray-500">{describeCoupon(c)}</p>
+                          <p className="text-xs text-gray-400">
+                            {c.remaining_uses === null
+                              ? 'Unlimited uses'
+                              : `${c.remaining_uses} use${c.remaining_uses === 1 ? '' : 's'} left`}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => applyCouponCode(c.code)}
+                          className="text-sm px-3 py-1.5 border border-amber-600 text-amber-600 rounded-lg hover:bg-amber-600 hover:text-white transition-colors font-medium"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </form>
 
           <div className="space-y-3 mb-6">

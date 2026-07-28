@@ -33,6 +33,15 @@ export interface OrderDetailItem {
   product?: Pick<Product, 'name' | 'price' | 'sku' | 'image_filenames'>;
 }
 
+export interface AvailableCoupon {
+  code: string;
+  discount_type: 'percent' | 'fixed';
+  discount_value: number;
+  min_order_amount: number | null;
+  remaining_uses: number | null;
+  expires_at: string | null;
+}
+
 export interface DeliverySlot {
   id: number;
   name: string;

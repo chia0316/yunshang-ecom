@@ -2,9 +2,9 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 const links = [
+  { to: '/wishlist', label: 'Wishlist' },
   { to: '/account/orders', label: 'My Orders' },
   { to: '/account/settings', label: 'Account Settings' },
-  { to: '/wishlist', label: 'Wishlist' },
 ];
 
 const AccountNav: React.FC = () => {

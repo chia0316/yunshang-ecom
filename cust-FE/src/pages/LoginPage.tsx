@@ -30,7 +30,7 @@ const LoginPage: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Log In</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Username or Email</label>
             <input
               type="text"
               value={username}

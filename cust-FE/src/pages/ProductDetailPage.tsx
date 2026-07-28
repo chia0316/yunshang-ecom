@@ -8,7 +8,7 @@ import type { Product } from '../lib/types';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams();
-  const { dispatch } = useCart();
+  const { addToCart } = useCart();
   const { isWishlisted, toggleWishlist } = useWishlist();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,15 +50,12 @@ const ProductDetailPage: React.FC = () => {
 
   const handleAddToCart = () => {
     for (let i = 0; i < quantity; i++) {
-      dispatch({
-        type: 'ADD_TO_CART',
-        payload: {
-          id: product.id,
-          name: product.name,
-          price: effectivePrice,
-          image: getProductImageUrl(product.image_filenames[0]),
-          leadTimeDays: product.lead_time_days,
-        },
+      addToCart({
+        id: product.id,
+        name: product.name,
+        price: effectivePrice,
+        image: getProductImageUrl(product.image_filenames[0]),
+        leadTimeDays: product.lead_time_days,
       });
     }
   };

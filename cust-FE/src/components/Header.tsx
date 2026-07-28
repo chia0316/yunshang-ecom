@@ -81,15 +81,13 @@ const Header: React.FC = () => {
               )}
             </button>
 
-            {user && (
-              <button
-                onClick={handleAccountClick}
-                className="text-gray-700 hover:text-amber-600 transition-colors"
-                title="My Orders"
-              >
-                <User className="w-5 h-5" />
-              </button>
-            )}
+            <button
+              onClick={handleAccountClick}
+              className="text-gray-700 hover:text-amber-600 transition-colors"
+              title={user ? 'My Orders' : 'Login'}
+            >
+              <User className="w-5 h-5" />
+            </button>
 
             {user && (
               <button

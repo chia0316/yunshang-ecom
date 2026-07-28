@@ -70,7 +70,7 @@ const OrderStatusTimeline: React.FC<{ status: OrderStatus }> = ({ status }) => {
 
 const AccountOrdersPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
-  const { dispatch } = useCart();
+  const { addToCart } = useCart();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -87,26 +87,13 @@ const AccountOrdersPage: React.FC = () => {
 
   const buyAgain = (order: Order) => {
     order.orderdetails?.forEach((item) => {
-      dispatch({
-        type: 'ADD_TO_CART',
-        payload: {
+      for (let i = 0; i < item.quantity; i++) {
+        addToCart({
           id: item.product_id,
           name: item.product?.name || `Product #${item.product_id}`,
           price: Number(item.price),
           image: getProductImageUrl(item.product?.image_filenames?.[0]),
           leadTimeDays: 0,
-        },
-      });
-      for (let i = 1; i < item.quantity; i++) {
-        dispatch({
-          type: 'ADD_TO_CART',
-          payload: {
-            id: item.product_id,
-            name: item.product?.name || `Product #${item.product_id}`,
-            price: Number(item.price),
-            image: getProductImageUrl(item.product?.image_filenames?.[0]),
-            leadTimeDays: 0,
-          },
         });
       }
     });

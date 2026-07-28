@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { ApiError } from '../lib/api';
 
 const SignupPage: React.FC = () => {
   const { signup } = useAuth();
@@ -16,25 +17,44 @@ const SignupPage: React.FC = () => {
     deliveryPostal: '',
   });
   const [error, setError] = useState<string | null>(null);
+  const [conflictFields, setConflictFields] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    // Once the customer edits a flagged field, drop the "already taken"
+    // highlight for it — it no longer reflects what they've typed.
+    if (conflictFields.includes(e.target.name)) {
+      setConflictFields((prev) => prev.filter((f) => f !== e.target.name));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setConflictFields([]);
     setLoading(true);
     try {
       await signup(form);
       navigate('/account/orders');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign up failed');
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setConflictFields(err.fields || []);
+      } else {
+        setError(err instanceof Error ? err.message : 'Sign up failed');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  const fieldClass = (name: string) =>
+    `w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+      conflictFields.includes(name)
+        ? 'border-red-400 focus:ring-red-400'
+        : 'border-gray-200 focus:ring-amber-500'
+    }`;
 
   return (
     <div className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -71,8 +91,11 @@ const SignupPage: React.FC = () => {
               onChange={handleChange}
               required
               minLength={5}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className={fieldClass('username')}
             />
+            {conflictFields.includes('username') && (
+              <p className="text-xs text-red-600 mt-1">This username is already taken.</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
@@ -82,8 +105,11 @@ const SignupPage: React.FC = () => {
               value={form.email}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className={fieldClass('email')}
             />
+            {conflictFields.includes('email') && (
+              <p className="text-xs text-red-600 mt-1">This email is already registered.</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Mobile</label>

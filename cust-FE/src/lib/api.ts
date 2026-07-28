@@ -2,9 +2,11 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  fields?: string[];
+  constructor(message: string, status: number, fields?: string[]) {
     super(message);
     this.status = status;
+    this.fields = fields;
   }
 }
 
@@ -40,7 +42,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   const data = contentType?.includes('application/json') ? await res.json() : undefined;
 
   if (!res.ok) {
-    throw new ApiError(data?.error || 'Request failed', res.status);
+    throw new ApiError(data?.error || 'Request failed', res.status, data?.fields);
   }
 
   return data as T;

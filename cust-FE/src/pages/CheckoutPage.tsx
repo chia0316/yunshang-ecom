@@ -5,7 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppliedCoupon } from '../hooks/useAppliedCoupon';
 import { useFreeDeliveryThreshold } from '../hooks/useFreeDeliveryThreshold';
-import { apiFetch } from '../lib/api';
+import { apiFetch, ApiError } from '../lib/api';
 import type { Order } from '../lib/types';
 
 const PAYMENT_METHODS = ['PayNow', 'NETS', 'Card', 'Cash'] as const;
@@ -21,7 +21,7 @@ interface Profile {
 }
 
 const CheckoutPage: React.FC = () => {
-  const { state, dispatch } = useCart();
+  const { state, clearCart } = useCart();
   const { user, signup } = useAuth();
 
   const [step, setStep] = useState<CheckoutStep>('delivery');
@@ -51,6 +51,7 @@ const CheckoutPage: React.FC = () => {
     password: '',
   });
   const [accountError, setAccountError] = useState<string | null>(null);
+  const [accountConflictFields, setAccountConflictFields] = useState<string[]>([]);
   const [creatingAccount, setCreatingAccount] = useState(false);
 
   const subtotal = state.total;
@@ -129,6 +130,7 @@ const CheckoutPage: React.FC = () => {
   const handleAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAccountError(null);
+    setAccountConflictFields([]);
     setCreatingAccount(true);
     try {
       await signup({
@@ -143,11 +145,23 @@ const CheckoutPage: React.FC = () => {
       });
       goToNextStep();
     } catch (err) {
-      setAccountError(err instanceof Error ? err.message : 'Failed to create account');
+      if (err instanceof ApiError) {
+        setAccountError(err.message);
+        setAccountConflictFields(err.fields || []);
+      } else {
+        setAccountError(err instanceof Error ? err.message : 'Failed to create account');
+      }
     } finally {
       setCreatingAccount(false);
     }
   };
+
+  const accountFieldClass = (name: string) =>
+    `w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+      accountConflictFields.includes(name)
+        ? 'border-red-400 focus:ring-red-400'
+        : 'border-gray-200 focus:ring-amber-500'
+    }`;
 
   const placeOrder = async () => {
     setSubmitting(true);
@@ -198,7 +212,7 @@ const CheckoutPage: React.FC = () => {
       );
 
       setPlacedOrder(confirmedOrder);
-      dispatch({ type: 'CLEAR_CART' });
+      clearCart();
       setStep('confirmation');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to place order');
@@ -280,25 +294,13 @@ const CheckoutPage: React.FC = () => {
                     />
                   </div>
 
-                  <div>
+                  <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number *</label>
                     <input
                       type="tel"
                       name="contact"
                       required
                       value={formData.contact}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code *</label>
-                    <input
-                      type="text"
-                      name="postal"
-                      required
-                      value={formData.postal}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                     />
@@ -324,6 +326,18 @@ const CheckoutPage: React.FC = () => {
                       name="address"
                       required
                       value={formData.address}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code *</label>
+                    <input
+                      type="text"
+                      name="postal"
+                      required
+                      value={formData.postal}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                     />
@@ -395,9 +409,15 @@ const CheckoutPage: React.FC = () => {
                       required
                       minLength={5}
                       value={accountForm.username}
-                      onChange={(e) => setAccountForm({ ...accountForm, username: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      onChange={(e) => {
+                        setAccountForm({ ...accountForm, username: e.target.value });
+                        setAccountConflictFields((prev) => prev.filter((f) => f !== 'username'));
+                      }}
+                      className={accountFieldClass('username')}
                     />
+                    {accountConflictFields.includes('username') && (
+                      <p className="text-xs text-red-600 mt-1">This username is already taken.</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
@@ -405,9 +425,15 @@ const CheckoutPage: React.FC = () => {
                       type="email"
                       required
                       value={accountForm.email}
-                      onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      onChange={(e) => {
+                        setAccountForm({ ...accountForm, email: e.target.value });
+                        setAccountConflictFields((prev) => prev.filter((f) => f !== 'email'));
+                      }}
+                      className={accountFieldClass('email')}
                     />
+                    {accountConflictFields.includes('email') && (
+                      <p className="text-xs text-red-600 mt-1">This email is already registered.</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>

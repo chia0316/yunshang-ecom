@@ -1,11 +1,42 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
+const { Op } = require('sequelize');
 
 const Coupon = require('../productModels/Coupon.model');
 const { authenticate } = require('../utils/authenticator');
 const { resolveCoupon } = require('../utils/coupons');
 const validate = require('../utils/validator');
+
+// Public — lets the storefront show a browsable list of currently usable
+// promo codes on the cart page, instead of customers having to already know
+// a code to try it. Only exposes codes that could actually still be applied
+// (active, not expired, under their usage cap) — never used_count/id/etc.
+router.get('/available', async (req, res) => {
+  try {
+    const now = new Date();
+    const coupons = await Coupon.findAll({
+      where: {
+        is_active: true,
+        [Op.or]: [{ expires_at: null }, { expires_at: { [Op.gt]: now } }]
+      },
+      order: [['created_at', 'DESC']]
+    });
+    const available = coupons
+      .filter((c) => c.max_uses === null || c.used_count < c.max_uses)
+      .map((c) => ({
+        code: c.code,
+        discount_type: c.discount_type,
+        discount_value: Number(c.discount_value),
+        min_order_amount: c.min_order_amount ? Number(c.min_order_amount) : null,
+        remaining_uses: c.max_uses === null ? null : c.max_uses - c.used_count,
+        expires_at: c.expires_at
+      }));
+    return res.json(available);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 router.get('/', authenticate, async (req, res) => {
   if (!req.isAdmin) {

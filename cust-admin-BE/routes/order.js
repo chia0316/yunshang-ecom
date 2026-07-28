@@ -345,6 +345,24 @@ router.post('/', authenticate, async (req, res) => {
       }))
     );
 
+    // Decrement is atomic per-product (SQL `stock_qty = stock_qty - :by`),
+    // then clamp any that went negative — stock was never being reduced by
+    // orders before this, so displayed counts never moved off their seed value.
+    await Promise.all(
+      orderDetails_list.map((item) =>
+        Product.decrement('stock_qty', { by: item.quantity, where: { id: item.product_id } })
+      )
+    );
+    await Product.update(
+      { stock_qty: 0 },
+      {
+        where: {
+          id: { [Op.in]: orderDetails_list.map((item) => item.product_id) },
+          stock_qty: { [Op.lt]: 0 }
+        }
+      }
+    );
+
     const userData = await User.findByPk(req.userId);
     mailer.sendOrderConfirmationMail(userData, newOrder, orderDetails_list);
 
@@ -361,12 +379,25 @@ router.patch('/:oid', authenticate, async (req, res) => {
   const { status } = req.body;
   try {
     const { oid } = req.params;
-    const updated = await Order.update({ status }, { where: { id: oid } });
-    if (updated[0] === 0) {
+    const order = await Order.findByPk(oid);
+    if (!order) {
       return res.status(404).json({ message: 'Order not found', success: false });
     }
+    const previousStatus = order.status;
+    await order.update({ status });
 
-    const order = await Order.findByPk(oid);
+    // Restore stock only on the transition into cancelled — never for an
+    // order that was already cancelled, so repeated status saves can't
+    // double-credit the same items back.
+    if (status === 'cancelled' && previousStatus !== 'cancelled') {
+      const items = await OrderDetail.findAll({ where: { order_id: oid } });
+      await Promise.all(
+        items.map((item) =>
+          Product.increment('stock_qty', { by: item.quantity, where: { id: item.product_id } })
+        )
+      );
+    }
+
     const user = await User.findByPk(order.user_id);
     mailer.sendOrderStatusUpdateMail(user, order);
 

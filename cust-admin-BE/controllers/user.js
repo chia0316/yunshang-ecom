@@ -69,13 +69,25 @@ const signup = async (req, res) => {
     }
     const data = req.body;
 
-    const userExists = await User.findOne({
-      where: { [Op.or]: [{ email: data.email }, { username: data.username }] }
-    });
-    if (userExists) {
+    const [usernameTaken, emailTaken] = await Promise.all([
+      User.findOne({ where: { username: data.username } }),
+      User.findOne({ where: { email: data.email } })
+    ]);
+    if (usernameTaken && emailTaken) {
+      return res.status(422).send({
+        error: 'This username and email are both already registered',
+        fields: ['username', 'email']
+      });
+    }
+    if (usernameTaken) {
       return res
         .status(422)
-        .send({ error: 'Account with this username or email already exists' });
+        .send({ error: 'This username is already taken', fields: ['username'] });
+    }
+    if (emailTaken) {
+      return res
+        .status(422)
+        .send({ error: 'This email is already registered', fields: ['email'] });
     }
 
     const hashPassword = await bcrypt.hash(data.password, 12);
@@ -115,8 +127,12 @@ const login = async (req, res) => {
     if (!isValid) {
       return;
     }
+    // The "username" field doubles as an email login — customers often
+    // forget which one they signed up with.
     const { username, password } = req.body;
-    const userExists = await User.findOne({ where: { username } });
+    const userExists = await User.findOne({
+      where: { [Op.or]: [{ username }, { email: username }] }
+    });
     if (!userExists) {
       return res.status(404).send({ error: 'Username or password incorrect' });
     }
