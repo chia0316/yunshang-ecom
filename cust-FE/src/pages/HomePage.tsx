@@ -226,6 +226,23 @@ const HomePage: React.FC = () => {
           </Link>
         </div>
       </section>
+
+      {/* Visit / Enquiry CTA */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">Prefer to See It in Person?</h2>
+          <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+            Book a showroom appointment or send us a question and our team will get back to you.
+          </p>
+          <Link
+            to="/visit-us"
+            className="inline-flex items-center px-6 py-3 border-2 border-amber-600 text-amber-600 rounded-lg hover:bg-amber-600 hover:text-white transition-colors font-semibold"
+          >
+            Visit Us / Enquire
+            <ArrowRight className="ml-2 w-4 h-4" />
+          </Link>
+        </div>
+      </section>
     </div>
   );
 };

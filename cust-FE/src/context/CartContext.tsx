@@ -12,12 +12,15 @@ interface CartItem {
 interface CartState {
   items: CartItem[];
   total: number;
+  couponCode: string | null;
 }
 
 type CartAction =
   | { type: 'ADD_TO_CART'; payload: Omit<CartItem, 'quantity'> }
   | { type: 'REMOVE_FROM_CART'; payload: number }
   | { type: 'UPDATE_QUANTITY'; payload: { id: number; quantity: number } }
+  | { type: 'APPLY_COUPON'; payload: string }
+  | { type: 'REMOVE_COUPON' }
   | { type: 'CLEAR_CART' }
   | { type: 'HYDRATE'; payload: CartState };
 
@@ -34,7 +37,7 @@ const calcTotal = (items: CartItem[]) =>
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'HYDRATE':
-      return action.payload;
+      return { couponCode: null, ...action.payload };
 
     case 'ADD_TO_CART': {
       const existingItem = state.items.find((item) => item.id === action.payload.id);
@@ -43,16 +46,16 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         const updatedItems = state.items.map((item) =>
           item.id === action.payload.id ? { ...item, quantity: item.quantity + 1 } : item
         );
-        return { items: updatedItems, total: calcTotal(updatedItems) };
+        return { ...state, items: updatedItems, total: calcTotal(updatedItems) };
       }
 
       const newItems = [...state.items, { ...action.payload, quantity: 1 }];
-      return { items: newItems, total: calcTotal(newItems) };
+      return { ...state, items: newItems, total: calcTotal(newItems) };
     }
 
     case 'REMOVE_FROM_CART': {
       const updatedItems = state.items.filter((item) => item.id !== action.payload);
-      return { items: updatedItems, total: calcTotal(updatedItems) };
+      return { ...state, items: updatedItems, total: calcTotal(updatedItems) };
     }
 
     case 'UPDATE_QUANTITY': {
@@ -64,11 +67,17 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         )
         .filter((item) => item.quantity > 0);
 
-      return { items: updatedItems, total: calcTotal(updatedItems) };
+      return { ...state, items: updatedItems, total: calcTotal(updatedItems) };
     }
 
+    case 'APPLY_COUPON':
+      return { ...state, couponCode: action.payload };
+
+    case 'REMOVE_COUPON':
+      return { ...state, couponCode: null };
+
     case 'CLEAR_CART':
-      return { items: [], total: 0 };
+      return { items: [], total: 0, couponCode: null };
 
     default:
       return state;
@@ -76,7 +85,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 };
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(cartReducer, { items: [], total: 0 });
+  const [state, dispatch] = useReducer(cartReducer, { items: [], total: 0, couponCode: null });
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);

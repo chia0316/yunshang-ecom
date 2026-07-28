@@ -32,14 +32,11 @@ const Footer: React.FC = () => {
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">Customer Service</h3>
             <div className="space-y-2">
-              <a href="#" className="block text-gray-300 hover:text-amber-500 transition-colors text-sm">
+              <Link to="/visit-us" className="block text-gray-300 hover:text-amber-500 transition-colors text-sm">
                 Contact Us
-              </a>
+              </Link>
               <a href="#" className="block text-gray-300 hover:text-amber-500 transition-colors text-sm">
                 Shipping Info
-              </a>
-              <a href="#" className="block text-gray-300 hover:text-amber-500 transition-colors text-sm">
-                Returns & Exchanges
               </a>
             </div>
           </div>

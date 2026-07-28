@@ -9,7 +9,11 @@ import {
   FolderTree,
   Users,
   BarChart3,
+  PieChart,
   Truck,
+  Tag,
+  Mail,
+  Settings,
   LogOut,
 } from "lucide-react";
 import {
@@ -32,10 +36,14 @@ const navItems = [
   { title: "Orders", url: "/orders", icon: ShoppingCart },
   { title: "Categories", url: "/categories", icon: FolderTree },
   { title: "Customers", url: "/customers", icon: Users },
+  { title: "Coupons", url: "/coupons", icon: Tag },
+  { title: "Enquiries", url: "/enquiries", icon: Mail },
   { title: "Sales Report", url: "/reports/sales", icon: BarChart3 },
+  { title: "Fulfilment Report", url: "/reports/category-fulfillment", icon: PieChart },
 ];
 
 const settingsItems = [
+  { title: "General", url: "/settings/general", icon: Settings },
   { title: "Delivery Slots", url: "/settings/delivery-slots", icon: Truck },
 ];
 

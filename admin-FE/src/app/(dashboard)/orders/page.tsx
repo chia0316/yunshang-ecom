@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { FileText } from "lucide-react";
+import { FileText, Truck, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiFetch } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { apiFetch, apiDownload } from "@/lib/api";
 import type { Order } from "@/lib/types";
 
 const STATUS_OPTIONS: Order["status"][] = [
@@ -56,22 +64,34 @@ export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [exporting, setExporting] = useState(false);
 
-  const loadOrders = useCallback(() => {
-    setLoading(true);
+  const [deliveryDialogOrder, setDeliveryDialogOrder] = useState<Order | null>(null);
+  const [deliveryForm, setDeliveryForm] = useState({
+    delivery_date: "",
+    delivery_slot: "",
+    remarks: "",
+  });
+  const [savingDelivery, setSavingDelivery] = useState(false);
+
+  const buildParams = useCallback(() => {
     const params = new URLSearchParams();
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (search) params.set("search", search);
     if (from) params.set("from", from);
     if (to) params.set("to", to);
+    return params;
+  }, [statusFilter, search, from, to]);
 
-    apiFetch<Order[]>(`/api/orders?${params.toString()}`)
+  const loadOrders = useCallback(() => {
+    setLoading(true);
+    apiFetch<Order[]>(`/api/orders?${buildParams().toString()}`)
       .then(setOrders)
       .catch((err) =>
         toast.error(err instanceof Error ? err.message : "Failed to load orders")
       )
       .finally(() => setLoading(false));
-  }, [statusFilter, search, from, to]);
+  }, [buildParams]);
 
   useEffect(() => {
     loadOrders();
@@ -105,13 +125,64 @@ export default function OrdersPage() {
     setTo("");
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await apiDownload(
+        `/api/orders/export?${buildParams().toString()}`,
+        `orders-export-${new Date().toISOString().slice(0, 10)}.xlsx`
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const openDeliveryDialog = (order: Order) => {
+    setDeliveryDialogOrder(order);
+    setDeliveryForm({
+      delivery_date: order.delivery?.delivery_date?.slice(0, 10) || "",
+      delivery_slot: order.delivery?.delivery_slot || "",
+      remarks: order.delivery?.remarks || "",
+    });
+  };
+
+  const handleSaveDelivery = async () => {
+    if (!deliveryDialogOrder) return;
+    setSavingDelivery(true);
+    try {
+      await apiFetch(`/api/orders/${deliveryDialogOrder.id}/delivery`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          delivery_date: deliveryForm.delivery_date || null,
+          delivery_slot: deliveryForm.delivery_slot || null,
+          remarks: deliveryForm.remarks || null,
+        }),
+      });
+      toast.success(`Delivery info updated for order #${deliveryDialogOrder.id}`);
+      setDeliveryDialogOrder(null);
+      loadOrders();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setSavingDelivery(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Orders</h1>
-        <p className="text-sm text-muted-foreground">
-          Track and update customer orders
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Orders</h1>
+          <p className="text-sm text-muted-foreground">
+            Track and update customer orders
+          </p>
+        </div>
+        <Button variant="outline" onClick={handleExport} disabled={exporting}>
+          <Download className="mr-2 h-4 w-4" />
+          {exporting ? "Exporting..." : "Export to Excel"}
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
@@ -161,21 +232,22 @@ export default function OrdersPage() {
               <TableHead>Order #</TableHead>
               <TableHead>Customer</TableHead>
               <TableHead>Total</TableHead>
+              <TableHead>Coupon</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Placed</TableHead>
-              <TableHead className="w-10" />
+              <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : orders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No orders match these filters.
                 </TableCell>
               </TableRow>
@@ -194,6 +266,18 @@ export default function OrdersPage() {
                     </div>
                   </TableCell>
                   <TableCell>${Number(order.total_price).toFixed(2)}</TableCell>
+                  <TableCell>
+                    {order.coupon_code ? (
+                      <div className="text-xs">
+                        <span className="font-mono">{order.coupon_code}</span>
+                        <div className="text-muted-foreground">
+                          -${Number(order.discount_amount ?? 0).toFixed(2)}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Select
                       value={order.status}
@@ -221,14 +305,24 @@ export default function OrdersPage() {
                     {new Date(order.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      render={<Link href={`/orders/${order.id}/document`} target="_blank" />}
-                      title="View Invoice / Delivery Order"
-                    >
-                      <FileText className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openDeliveryDialog(order)}
+                        title="Set delivery date"
+                      >
+                        <Truck className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        render={<Link href={`/orders/${order.id}/document`} target="_blank" />}
+                        title="View Invoice / Delivery Order"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -236,6 +330,67 @@ export default function OrdersPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog
+        open={Boolean(deliveryDialogOrder)}
+        onOpenChange={(open) => !open && setDeliveryDialogOrder(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Delivery info — Order #{deliveryDialogOrder?.id}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Record the date/slot agreed with the customer over WhatsApp, email, or call.
+              This appears on the invoice / delivery order document.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="delivery-date">Delivery Date</Label>
+                <Input
+                  id="delivery-date"
+                  type="date"
+                  value={deliveryForm.delivery_date}
+                  onChange={(e) =>
+                    setDeliveryForm({ ...deliveryForm, delivery_date: e.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="delivery-slot">Delivery Slot</Label>
+                <Input
+                  id="delivery-slot"
+                  placeholder="e.g. Afternoon"
+                  value={deliveryForm.delivery_slot}
+                  onChange={(e) =>
+                    setDeliveryForm({ ...deliveryForm, delivery_slot: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="delivery-remarks">Remarks</Label>
+              <Textarea
+                id="delivery-remarks"
+                value={deliveryForm.remarks}
+                onChange={(e) =>
+                  setDeliveryForm({ ...deliveryForm, remarks: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeliveryDialogOrder(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveDelivery} disabled={savingDelivery}>
+              {savingDelivery ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Lock, ArrowLeft, Check, ShieldCheck } from 'lucide-react';
+import { Lock, ArrowLeft, Check, ShieldCheck, Truck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useAppliedCoupon } from '../hooks/useAppliedCoupon';
+import { useFreeDeliveryThreshold } from '../hooks/useFreeDeliveryThreshold';
 import { apiFetch } from '../lib/api';
-import type { DeliverySlot, Order } from '../lib/types';
+import type { Order } from '../lib/types';
 
 const PAYMENT_METHODS = ['PayNow', 'NETS', 'Card', 'Cash'] as const;
 
@@ -18,8 +20,6 @@ interface Profile {
   deliveryPostal: string | null;
 }
 
-const toDateInput = (date: Date) => date.toISOString().slice(0, 10);
-
 const CheckoutPage: React.FC = () => {
   const { state, dispatch } = useCart();
   const { user, signup } = useAuth();
@@ -30,7 +30,6 @@ const CheckoutPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
 
-  const [deliverySlots, setDeliverySlots] = useState<DeliverySlot[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [useDifferentAddress, setUseDifferentAddress] = useState(false);
 
@@ -40,8 +39,6 @@ const CheckoutPage: React.FC = () => {
     contact: '',
     address: '',
     postal: '',
-    deliveryDate: '',
-    deliverySlot: '',
     remarks: '',
   });
   const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]>('PayNow');
@@ -57,35 +54,24 @@ const CheckoutPage: React.FC = () => {
   const [creatingAccount, setCreatingAccount] = useState(false);
 
   const subtotal = state.total;
-  const shipping = subtotal > 500 ? 0 : 50;
-  const total = subtotal + shipping;
+  const freeDeliveryThreshold = useFreeDeliveryThreshold();
+  const { coupon } = useAppliedCoupon(state.couponCode, subtotal);
+  const discountAmount = coupon?.discountAmount || 0;
+  const shipping = subtotal >= freeDeliveryThreshold ? 0 : 50;
+  const total = Math.max(subtotal + shipping - discountAmount, 0);
 
-  // Earliest date any item in the cart can actually be delivered, based on
-  // the longest product lead time (e.g. a made-to-order piece needing ~2
-  // months) — never let the customer pick a date the order can't be ready by.
+  // Longest lead time across cart items (e.g. a made-to-order piece needing
+  // ~2 months) — surfaced as a note rather than a date picker, since delivery
+  // is now scheduled after checkout via WhatsApp/email/call, not selected here.
   const maxLeadTimeDays = state.items.reduce(
     (max, item) => Math.max(max, item.leadTimeDays || 0),
     0
-  );
-  const minDeliveryDate = toDateInput(
-    new Date(Date.now() + maxLeadTimeDays * 24 * 60 * 60 * 1000)
   );
 
   const STEPS: CheckoutStep[] = user
     ? ['delivery', 'payment', 'confirmation']
     : ['delivery', 'account', 'payment', 'confirmation'];
   const stepIndex = STEPS.indexOf(step);
-
-  useEffect(() => {
-    apiFetch<DeliverySlot[]>('/api/delivery-slots', { auth: false })
-      .then((slots) => {
-        setDeliverySlots(slots);
-        if (slots.length > 0) {
-          setFormData((prev) => ({ ...prev, deliverySlot: prev.deliverySlot || slots[0].name }));
-        }
-      })
-      .catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -103,14 +89,6 @@ const CheckoutPage: React.FC = () => {
       })
       .catch(() => undefined);
   }, [user]);
-
-  useEffect(() => {
-    setFormData((prev) =>
-      !prev.deliveryDate || prev.deliveryDate < minDeliveryDate
-        ? { ...prev, deliveryDate: minDeliveryDate }
-        : prev
-    );
-  }, [minDeliveryDate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -179,14 +157,16 @@ const CheckoutPage: React.FC = () => {
       const orderRes = await apiFetch<{ order: Order }>('/api/orders', {
         method: 'POST',
         body: JSON.stringify({
-          total_price: total,
+          // Pre-discount total (subtotal + shipping) — the backend re-validates
+          // the coupon and subtracts the discount itself rather than trusting
+          // a client-computed amount.
+          total_price: subtotal + shipping,
+          couponCode: coupon ? coupon.code : undefined,
           firstName: formData.firstName,
           lastName: formData.lastName,
           contact: formData.contact,
           deliveryAddress: formData.address,
           deliveryPostal: formData.postal,
-          deliveryDate: formData.deliveryDate || null,
-          deliverySlot: formData.deliverySlot,
           remarks: formData.remarks || null,
           orderDetails_list: state.items.map((item) => ({
             product_id: item.id,
@@ -349,40 +329,22 @@ const CheckoutPage: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Delivery Date</label>
-                    <input
-                      type="date"
-                      name="deliveryDate"
-                      min={minDeliveryDate}
-                      value={formData.deliveryDate}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                    />
-                    {maxLeadTimeDays > 0 && (
-                      <p className="text-xs text-amber-600 mt-1">
-                        One or more items in your cart need ~{Math.round(maxLeadTimeDays / 7)} week
-                        {Math.round(maxLeadTimeDays / 7) === 1 ? '' : 's'} to prepare, so the earliest
-                        delivery date is {new Date(minDeliveryDate).toLocaleDateString()}.
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Slot</label>
-                    <select
-                      name="deliverySlot"
-                      value={formData.deliverySlot}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                    >
-                      {deliverySlots.map((slot) => (
-                        <option key={slot.id} value={slot.name}>
-                          {slot.name}
-                          {slot.time_range ? ` (${slot.time_range})` : ''}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="md:col-span-2">
+                    <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <Truck className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-gray-700">
+                        <p className="font-medium text-gray-900">Delivery is arranged after checkout</p>
+                        <p className="mt-1">
+                          Deliveries may be scheduled piecemeal depending on availability. Our team
+                          will confirm the exact delivery date and time slot with you via WhatsApp,
+                          email, or a phone call.
+                          {maxLeadTimeDays > 0 &&
+                            ` One or more items in your order need about ${Math.round(maxLeadTimeDays / 7)} week${
+                              Math.round(maxLeadTimeDays / 7) === 1 ? '' : 's'
+                            } to prepare before they can be delivered.`}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="md:col-span-2">
@@ -599,6 +561,13 @@ const CheckoutPage: React.FC = () => {
                 <span className="text-gray-600">Subtotal</span>
                 <span className="font-medium">${subtotal.toFixed(2)}</span>
               </div>
+
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Discount ({coupon?.code})</span>
+                  <span className="font-medium">-${discountAmount.toFixed(2)}</span>
+                </div>
+              )}
 
               <div className="flex justify-between">
                 <span className="text-gray-600">Shipping</span>

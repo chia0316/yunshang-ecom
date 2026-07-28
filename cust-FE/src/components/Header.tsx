@@ -37,6 +37,9 @@ const Header: React.FC = () => {
             <Link to="/products" className="text-gray-700 hover:text-amber-600 transition-colors font-medium">
               Shop
             </Link>
+            <Link to="/visit-us" className="text-gray-700 hover:text-amber-600 transition-colors font-medium">
+              Visit Us
+            </Link>
           </nav>
 
           {/* Search Bar */}

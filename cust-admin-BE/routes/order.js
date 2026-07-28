@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const { Op } = require('sequelize');
+const ExcelJS = require('exceljs');
 
 const Order = require('../productModels/Order.model');
 const OrderDetail = require('../productModels/OrderDetail.model');
@@ -9,37 +10,46 @@ const OrderDelivery = require('../productModels/OrderDelivery.model');
 const Payment = require('../productModels/Payment.model');
 const Product = require('../productModels/Product.model');
 const User = require('../productModels/User.model');
+const Coupon = require('../productModels/Coupon.model');
 const mailer = require('../utils/mailer');
 const validate = require('../utils/validator');
 const { authenticate } = require('../utils/authenticator');
 const { getCompanySettings } = require('../utils/companySettings');
+const { resolveCoupon } = require('../utils/coupons');
+
+// Shared by the order list and the Excel export — same status/search/date
+// filters should apply to both.
+const buildOrderFilters = ({ status, search, from, to }) => {
+  const where = {};
+  if (status) where.status = status;
+  if (from || to) {
+    where.created_at = {};
+    if (from) where.created_at[Op.gte] = new Date(from);
+    if (to) where.created_at[Op.lte] = new Date(to);
+  }
+  if (search && !isNaN(Number(search))) {
+    where.id = Number(search);
+  }
+
+  const userWhere = search && isNaN(Number(search))
+    ? {
+        [Op.or]: [
+          { firstName: { [Op.iLike]: `%${search}%` } },
+          { lastName: { [Op.iLike]: `%${search}%` } },
+          { email: { [Op.iLike]: `%${search}%` } }
+        ]
+      }
+    : undefined;
+
+  return { where, userWhere };
+};
 
 router.get('/', authenticate, async (req, res) => {
   if (!req.isAdmin) {
     return res.status(403).json({ error: 'Unauthorized request' });
   }
   try {
-    const { status, search, from, to } = req.query;
-    const where = {};
-    if (status) where.status = status;
-    if (from || to) {
-      where.created_at = {};
-      if (from) where.created_at[Op.gte] = new Date(from);
-      if (to) where.created_at[Op.lte] = new Date(to);
-    }
-    if (search && !isNaN(Number(search))) {
-      where.id = Number(search);
-    }
-
-    const userWhere = search && isNaN(Number(search))
-      ? {
-          [Op.or]: [
-            { firstName: { [Op.iLike]: `%${search}%` } },
-            { lastName: { [Op.iLike]: `%${search}%` } },
-            { email: { [Op.iLike]: `%${search}%` } }
-          ]
-        }
-      : undefined;
+    const { where, userWhere } = buildOrderFilters(req.query);
 
     const rows = await Order.findAll({
       where,
@@ -54,6 +64,106 @@ router.get('/', authenticate, async (req, res) => {
       order: [['created_at', 'DESC']]
     });
     res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Exports orders (one row per order) and order line items (one row per
+// item) to a single .xlsx workbook, using the same status/search/date-range
+// filters as the Orders list page.
+router.get('/export', authenticate, async (req, res) => {
+  if (!req.isAdmin) {
+    return res.status(403).json({ error: 'Unauthorized request' });
+  }
+  try {
+    const { where, userWhere } = buildOrderFilters(req.query);
+
+    const orders = await Order.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          attributes: ['firstName', 'lastName', 'email'],
+          where: userWhere,
+          required: Boolean(userWhere)
+        },
+        {
+          model: OrderDetail,
+          required: false,
+          include: [{ model: Product, attributes: ['sku', 'name'] }]
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    const orderIds = orders.map((o) => o.id);
+    const deliveries = await OrderDelivery.findAll({ where: { order_id: { [Op.in]: orderIds } } });
+    const deliveryByOrder = Object.fromEntries(deliveries.map((d) => [d.order_id, d]));
+
+    const workbook = new ExcelJS.Workbook();
+
+    const ordersSheet = workbook.addWorksheet('Orders');
+    ordersSheet.columns = [
+      { header: 'Order ID', key: 'id', width: 10 },
+      { header: 'Customer', key: 'customer', width: 25 },
+      { header: 'Email', key: 'email', width: 28 },
+      { header: 'Status', key: 'status', width: 14 },
+      { header: 'Coupon Code', key: 'couponCode', width: 16 },
+      { header: 'Discount', key: 'discount', width: 12 },
+      { header: 'Total', key: 'total', width: 12 },
+      { header: 'Delivery Address', key: 'address', width: 35 },
+      { header: 'Delivery Date', key: 'deliveryDate', width: 14 },
+      { header: 'Created At', key: 'createdAt', width: 20 }
+    ];
+    orders.forEach((order) => {
+      const delivery = deliveryByOrder[order.id];
+      ordersSheet.addRow({
+        id: order.id,
+        customer: order.user ? `${order.user.firstName} ${order.user.lastName}` : '',
+        email: order.user?.email || '',
+        status: order.status,
+        couponCode: order.coupon_code || '',
+        discount: order.discount_amount ? Number(order.discount_amount) : '',
+        total: Number(order.total_price),
+        address: delivery?.delivery_address || '',
+        deliveryDate: delivery?.delivery_date || '',
+        createdAt: order.created_at.toISOString()
+      });
+    });
+
+    const itemsSheet = workbook.addWorksheet('Order Items');
+    itemsSheet.columns = [
+      { header: 'Order ID', key: 'orderId', width: 10 },
+      { header: 'SKU', key: 'sku', width: 20 },
+      { header: 'Product Name', key: 'name', width: 35 },
+      { header: 'Quantity', key: 'quantity', width: 10 },
+      { header: 'Unit Price', key: 'price', width: 12 },
+      { header: 'Line Total', key: 'lineTotal', width: 12 }
+    ];
+    orders.forEach((order) => {
+      (order.orderdetails || []).forEach((item) => {
+        itemsSheet.addRow({
+          orderId: order.id,
+          sku: item.product?.sku || '',
+          name: item.product?.name || '',
+          quantity: item.quantity,
+          price: Number(item.price),
+          lineTotal: Number(item.price) * item.quantity
+        });
+      });
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="orders-export-${new Date().toISOString().slice(0, 10)}.xlsx"`
+    );
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -178,15 +288,40 @@ router.post('/', authenticate, async (req, res) => {
     deliverySlot,
     remarks,
     contact,
-    orderDetails_list
+    orderDetails_list,
+    couponCode
   } = req.body;
 
   try {
+    // Discount is always recomputed server-side from the coupon rules — the
+    // client only ever sends the pre-discount total_price (subtotal +
+    // shipping), never the discount amount itself, so it can't be faked.
+    let discountAmount = 0;
+    let appliedCouponCode = null;
+    if (couponCode) {
+      const subtotal = orderDetails_list.reduce(
+        (sum, item) => sum + Number(item.price) * item.quantity,
+        0
+      );
+      const result = await resolveCoupon(couponCode, subtotal);
+      if (result.error) {
+        return res.status(400).json({ error: result.error });
+      }
+      discountAmount = result.discountAmount;
+      appliedCouponCode = result.coupon.code;
+    }
+
     const newOrder = await Order.create({
       user_id: req.userId,
-      total_price,
+      total_price: Math.max(Number(total_price) - discountAmount, 0),
+      coupon_code: appliedCouponCode,
+      discount_amount: appliedCouponCode ? discountAmount : null,
       status: 'pending'
     });
+
+    if (appliedCouponCode) {
+      await Coupon.increment('used_count', { where: { code: appliedCouponCode } });
+    }
 
     await OrderDelivery.create({
       order_id: newOrder.id,
@@ -241,16 +376,44 @@ router.patch('/:oid', authenticate, async (req, res) => {
   }
 });
 
+// Lets admin record the delivery date/slot agreed with the customer over
+// WhatsApp/email/call once checkout no longer collects a preferred date
+// directly — shows up on the invoice/delivery order document.
+router.patch('/:oid/delivery', authenticate, async (req, res) => {
+  if (!req.isAdmin) {
+    return res.status(403).json({ error: 'Unauthorized request' });
+  }
+  const allowedFields = ['delivery_date', 'delivery_slot', 'remarks'];
+  const updates = Object.fromEntries(
+    Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
+  );
+  try {
+    const { oid } = req.params;
+    const updated = await OrderDelivery.update(updates, { where: { order_id: oid } });
+    if (updated[0] === 0) {
+      return res.status(404).json({ message: 'Order delivery info not found', success: false });
+    }
+    return res.json({ message: 'Delivery info updated successfully!', success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Soft-delete only — the row and its deleted_by_admin_id are kept (see
+// paranoid/deletedAt on the Order model) so a deleted order can always be
+// traced back to who removed it and when, instead of vanishing without trace.
 router.delete('/:oid', authenticate, async (req, res) => {
   if (!req.isAdmin) {
     return res.status(403).json({ error: 'Unauthorized request' });
   }
   try {
     const { oid } = req.params;
-    const deletedCount = await Order.destroy({ where: { id: oid } });
-    if (deletedCount === 0) {
+    const order = await Order.findByPk(oid);
+    if (!order) {
       return res.status(404).json({ message: 'Order not found', success: false });
     }
+    await order.update({ deleted_by_admin_id: req.userId });
+    await order.destroy();
     return res.json({ message: 'Order deleted successfully!', success: true });
   } catch (err) {
     return res.status(500).json({ error: err.message });

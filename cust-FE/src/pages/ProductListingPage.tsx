@@ -9,7 +9,6 @@ const ProductListingPage: React.FC = () => {
   const { categoryId } = useParams();
   const { isWishlisted, toggleWishlist } = useWishlist();
   const [sortBy, setSortBy] = useState('featured');
-  const [inStockOnly, setInStockOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -34,7 +33,7 @@ const ProductListingPage: React.FC = () => {
   const effectivePrice = (product: Product) =>
     product.sale_price ? Number(product.sale_price) : Number(product.price);
 
-  const filteredProducts = (inStockOnly ? products.filter((p) => p.stock_qty > 0) : products)
+  const filteredProducts = products
     .slice()
     .sort((a, b) => {
       if (sortBy === 'price-low') return effectivePrice(a) - effectivePrice(b);
@@ -117,18 +116,6 @@ const ProductListingPage: React.FC = () => {
                   </Link>
                 ))}
               </div>
-            </div>
-
-            <div>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={inStockOnly}
-                  onChange={(e) => setInStockOnly(e.target.checked)}
-                  className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">In stock only</span>
-              </label>
             </div>
           </div>
         </div>

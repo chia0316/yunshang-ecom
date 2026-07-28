@@ -88,11 +88,53 @@ export interface Order {
   total_price: string;
   status: OrderStatus;
   confirmation_email_sent: boolean;
+  coupon_code: string | null;
+  discount_amount: string | null;
   created_at: string;
   user?: Pick<User, "firstName" | "lastName" | "email" | "mobile">;
   orderdetails?: OrderDetailItem[];
   delivery?: OrderDelivery | null;
   payments?: Payment[];
+}
+
+export interface Coupon {
+  id: number;
+  code: string;
+  discount_type: "percent" | "fixed";
+  discount_value: string;
+  min_order_amount: string | null;
+  max_uses: number | null;
+  used_count: number;
+  expires_at: string | null;
+  is_active: boolean;
+  createdAt: string;
+}
+
+export type EnquiryType = "appointment" | "enquiry" | "other";
+export type EnquiryStatus = "new" | "contacted" | "closed";
+
+export interface Enquiry {
+  id: number;
+  type: EnquiryType;
+  name: string;
+  email: string;
+  mobile: string | null;
+  preferred_date: string | null;
+  preferred_time: string | null;
+  message: string | null;
+  status: EnquiryStatus;
+  createdAt: string;
+}
+
+export interface CategoryFulfillmentReport {
+  range: { from: string; to: string };
+  categories: {
+    categoryId: number;
+    categoryName: string;
+    quantityOrdered: number;
+    quantityDelivered: number;
+    balance: number;
+  }[];
 }
 
 export interface CompanySettings {

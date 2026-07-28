@@ -17,6 +17,9 @@ const orderDetailsRouter = require('./routes/orderDetails');
 const paymentRouter = require('./routes/payment');
 const reportsRouter = require('./routes/reports');
 const deliverySlotsRouter = require('./routes/deliverySlots');
+const settingsRouter = require('./routes/settings');
+const couponsRouter = require('./routes/coupons');
+const enquiriesRouter = require('./routes/enquiries');
 
 const app = express();
 app.use(cors());
@@ -41,6 +44,9 @@ app.use('/api/orderdetails', orderDetailsRouter);
 app.use('/api/payments', paymentRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/delivery-slots', deliverySlotsRouter);
+app.use('/api/settings', settingsRouter);
+app.use('/api/coupons', couponsRouter);
+app.use('/api/enquiries', enquiriesRouter);
 
 app.get('/', (req, res) => res.status(200).send({ message: 'Alive!' }));
 

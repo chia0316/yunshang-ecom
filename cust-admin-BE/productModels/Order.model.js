@@ -35,6 +35,18 @@ Order.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false
+    },
+    deleted_by_admin_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    coupon_code: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    },
+    discount_amount: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true
     }
   },
   {
@@ -42,7 +54,9 @@ Order.init(
     modelName: 'order',
     tableName: 'orders',
     underscored: true,
-    timestamps: true
+    timestamps: true,
+    paranoid: true,
+    deletedAt: 'deleted_at'
   }
 );
 

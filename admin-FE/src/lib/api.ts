@@ -59,4 +59,24 @@ export function getProductImageUrl(filename: string): string {
   return `${API_URL}/static/images/${filename}`;
 }
 
+// For endpoints that return a file (e.g. Excel export) instead of JSON —
+// fetches with the auth header apiFetch would normally add, then triggers
+// a browser download of the response body.
+export async function apiDownload(path: string, filename: string): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!res.ok) {
+    throw new ApiError("Download failed", res.status);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export { API_URL };

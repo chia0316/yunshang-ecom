@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Heart, Share, Minus, Plus, ShoppingCart, Truck, Shield, RotateCcw } from 'lucide-react';
+import { Heart, Share, Minus, Plus, ShoppingCart, Truck, Shield } from 'lucide-react';
 import { apiFetch, getProductImageUrl } from '../lib/api';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
@@ -218,12 +218,12 @@ const ProductDetailPage: React.FC = () => {
 
           {/* Guarantees */}
           <div className="bg-gray-50 p-6 rounded-lg">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center space-x-3">
                 <Truck className="w-6 h-6 text-amber-600" />
                 <div>
                   <p className="font-medium text-sm">Island-wide Delivery</p>
-                  <p className="text-xs text-gray-500">Scheduled delivery slots</p>
+                  <p className="text-xs text-gray-500">Scheduled after order confirmation</p>
                 </div>
               </div>
 
@@ -232,14 +232,6 @@ const ProductDetailPage: React.FC = () => {
                 <div>
                   <p className="font-medium text-sm">Warranty Included</p>
                   <p className="text-xs text-gray-500">Manufacturing defects</p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <RotateCcw className="w-6 h-6 text-amber-600" />
-                <div>
-                  <p className="font-medium text-sm">Easy Returns</p>
-                  <p className="text-xs text-gray-500">Terms apply</p>
                 </div>
               </div>
             </div>
