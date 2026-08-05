@@ -32,6 +32,10 @@ app.use(express.urlencoded({ extended: true }));
 // dev-friendly counterpart to uploading to S3 via /api/products/upload-images.
 app.use('/static/images', express.static(path.join(__dirname, 'public/images')));
 
+// Serves product videos placed in public/videos by filename — counterpart to
+// uploading via /api/products/upload-video.
+app.use('/static/videos', express.static(path.join(__dirname, 'public/videos')));
+
 app.use('/user', userRouter);
 app.use('/admin', adminRouter);
 app.use('/admin/dashboard', analyticsRouter);

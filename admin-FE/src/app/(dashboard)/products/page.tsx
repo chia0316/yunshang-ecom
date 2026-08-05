@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { MoreHorizontal, Plus, Upload } from "lucide-react";
+import { Images, MoreHorizontal, Plus, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,7 @@ import { apiFetch, getProductImageUrl } from "@/lib/api";
 import type { Category, Product } from "@/lib/types";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { BulkUploadDialog } from "@/components/products/bulk-upload-dialog";
+import { ImageGalleryDialog } from "@/components/products/image-gallery-dialog";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -32,6 +33,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
 
   const loadProducts = useCallback(async (searchText?: string) => {
@@ -84,6 +86,10 @@ export default function ProductsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setGalleryOpen(true)}>
+            <Images className="mr-2 h-4 w-4" />
+            Image Gallery
+          </Button>
           <Button variant="outline" onClick={() => setBulkOpen(true)}>
             <Upload className="mr-2 h-4 w-4" />
             Mass Upload
@@ -233,6 +239,7 @@ export default function ProductsPage() {
         onOpenChange={setBulkOpen}
         onUploaded={() => loadProducts(search)}
       />
+      <ImageGalleryDialog open={galleryOpen} onOpenChange={setGalleryOpen} />
     </div>
   );
 }

@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiFetch, getProductImageUrl } from "@/lib/api";
+import { apiFetch, getProductImageUrl, getProductVideoUrl } from "@/lib/api";
 import type { Category, Product } from "@/lib/types";
 
 interface ProductFormDialogProps {
@@ -44,7 +44,7 @@ const emptyForm = {
   price: "",
   sale_price: "",
   stock_qty: "0",
-  weight_kg: "",
+  dimensions: "",
   lead_time_days: "0",
   tags: "",
   is_featured: false,
@@ -60,9 +60,11 @@ export function ProductFormDialog({
 }: ProductFormDialogProps) {
   const [form, setForm] = useState(emptyForm);
   const [images, setImages] = useState<string[]>([]);
+  const [video, setVideo] = useState<string | null>(null);
   const [manualFilename, setManualFilename] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -76,16 +78,18 @@ export function ProductFormDialog({
         price: product.price,
         sale_price: product.sale_price || "",
         stock_qty: String(product.stock_qty),
-        weight_kg: product.weight_kg || "",
+        dimensions: product.dimensions || "",
         lead_time_days: String(product.lead_time_days ?? 0),
         tags: product.tags.join(", "),
         is_featured: product.is_featured,
         is_active: product.is_active,
       });
       setImages(product.image_filenames);
+      setVideo(product.video_filename);
     } else {
       setForm(emptyForm);
       setImages([]);
+      setVideo(null);
     }
     setManualFilename("");
   }, [product, open]);
@@ -117,6 +121,26 @@ export function ProductFormDialog({
     }
   };
 
+  const handleVideoUpload = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    setUploadingVideo(true);
+    try {
+      const body = new FormData();
+      body.append("video", file);
+      const res = await apiFetch<{ filename: string }>(
+        "/api/products/upload-video",
+        { method: "POST", body }
+      );
+      setVideo(res.filename);
+      toast.success("Video uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Video upload failed");
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
   const handleAddManualFilename = () => {
     const filename = manualFilename.trim();
     if (!filename) return;
@@ -144,13 +168,14 @@ export function ProductFormDialog({
         price: parseFloat(form.price),
         sale_price: form.sale_price ? parseFloat(form.sale_price) : null,
         stock_qty: parseInt(form.stock_qty || "0", 10),
-        weight_kg: form.weight_kg ? parseFloat(form.weight_kg) : null,
+        dimensions: form.dimensions || null,
         lead_time_days: parseInt(form.lead_time_days || "0", 10),
         tags: form.tags
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
         image_filenames: images,
+        video_filename: video,
         is_featured: form.is_featured,
         is_active: form.is_active,
       };
@@ -285,14 +310,13 @@ export function ProductFormDialog({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="weight_kg">Weight (kg)</Label>
+            <Label htmlFor="dimensions">Dimensions</Label>
             <Input
-              id="weight_kg"
-              type="number"
-              step="0.01"
-              value={form.weight_kg}
+              id="dimensions"
+              placeholder="e.g. 120 x 60 x 75 cm"
+              value={form.dimensions}
               onChange={(e) =>
-                setForm({ ...form, weight_kg: e.target.value })
+                setForm({ ...form, dimensions: e.target.value })
               }
             />
           </div>
@@ -367,6 +391,41 @@ export function ProductFormDialog({
             <p className="text-xs text-muted-foreground">
               Upload new photos, or add a filename that already exists in the
               image folder (e.g. from a previous mass upload).
+            </p>
+          </div>
+          <div className="col-span-2 grid gap-2">
+            <Label>Product Video</Label>
+            {video && (
+              <div className="relative w-40">
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <video
+                  src={getProductVideoUrl(video)}
+                  className="aspect-square w-40 rounded border object-cover"
+                  muted
+                  controls
+                />
+                <button
+                  type="button"
+                  onClick={() => setVideo(null)}
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+                  title="Remove video"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+            <Input
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime"
+              disabled={uploadingVideo}
+              onChange={(e) => {
+                handleVideoUpload(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              One video, max 10MB (MP4, WebM, or MOV). Shown as the last
+              gallery thumbnail on the product page.
             </p>
           </div>
           <div className="flex items-center gap-2">

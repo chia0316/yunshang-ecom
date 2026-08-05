@@ -35,17 +35,39 @@ const sendTempPasswordMail = (email, tempPassword) => {
   });
 };
 
-const sendOrderConfirmationMail = (user, order, orderDetailsList) => {
+const PAYMENT_METHODS = ['PayNow', 'NETS', 'Card', 'Cash'];
+const CASH_PAYMENT_DAYS = 7;
+
+const sendOrderConfirmationMail = (user, order, orderDetailsList, { paymentMethod, company } = {}) => {
   const itemsHtml = orderDetailsList
     .map(
       (item) =>
         `<li>${item.name} x ${item.quantity} — $${Number(item.price).toFixed(2)}</li>`
     )
     .join('');
+
+  // Only trust paymentMethod if it's one of the real enum values — it's
+  // unvalidated client input and goes straight into the email body below.
+  const safeMethod = PAYMENT_METHODS.includes(paymentMethod) ? paymentMethod : undefined;
+
+  let cashHtml = '';
+  if (safeMethod === 'Cash' && company) {
+    const dueDate = new Date(order.created_at);
+    dueDate.setDate(dueDate.getDate() + CASH_PAYMENT_DAYS);
+    cashHtml = `
+      <p><b>Cash payment instructions:</b> Please pay in cash at our office within
+      ${CASH_PAYMENT_DAYS} days (by ${dueDate.toDateString()}) to confirm your order.</p>
+      <ul>
+        <li>Address: ${company.address}</li>
+        ${company.phone ? `<li>Phone: ${company.phone}</li>` : ''}
+      </ul>
+    `;
+  }
+
   send({
     to: user.email,
     subject: `Casa Yun order confirmation #${order.id}`,
-    html: `<p>Hi ${user.firstName},</p><p>Thank you for your order #${order.id}. Total: $${Number(order.total_price).toFixed(2)}.</p><ul>${itemsHtml}</ul>`
+    html: `<p>Hi ${user.firstName},</p><p>Thank you for your order #${order.id}. Total: $${Number(order.total_price).toFixed(2)}.</p><ul>${itemsHtml}</ul>${cashHtml}`
   });
 };
 

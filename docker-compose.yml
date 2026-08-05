@@ -46,6 +46,7 @@ services:
       - "8090:8090"
     volumes:
       - backend_images:/app/public/images
+      - backend_videos:/app/public/videos
 
   admin-fe:
     build:
@@ -63,6 +64,7 @@ services:
       context: ./cust-FE
       args:
         VITE_API_URL: http://${DROPLET_IP}:8090
+        VITE_WHATSAPP_NUMBER: ${WHATSAPP_NUMBER}
     restart: unless-stopped
     depends_on:
       - backend
@@ -72,3 +74,4 @@ services:
 volumes:
   pgdata:
   backend_images:
+  backend_videos:

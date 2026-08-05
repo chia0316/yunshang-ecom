@@ -1,9 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Filter, Grid, List, ChevronDown, Star, Heart } from 'lucide-react';
+import {
+  Filter,
+  Grid,
+  List,
+  ChevronDown,
+  Star,
+  Heart,
+  LayoutGrid,
+  UtensilsCrossed,
+  BedDouble,
+  Sofa,
+  Lamp,
+  Armchair,
+  Table,
+  Palette,
+} from 'lucide-react';
 import { apiFetch, getProductImageUrl } from '../lib/api';
 import { useWishlist } from '../context/WishlistContext';
 import type { Category, Product } from '../lib/types';
+
+// Best-effort icon per category name — categories are admin-defined free
+// text, so this matches on common furniture-store keywords and falls back
+// to a generic grid icon rather than guessing wrong.
+const getCategoryIcon = (name: string) => {
+  const n = name.toLowerCase();
+  if (n.includes('dining') || n.includes('kitchen')) return UtensilsCrossed;
+  if (n.includes('bed') || n.includes('mattress')) return BedDouble;
+  if (n.includes('sofa') || n.includes('living') || n.includes('couch')) return Sofa;
+  if (n.includes('light') || n.includes('lamp')) return Lamp;
+  if (n.includes('chair') || n.includes('seat')) return Armchair;
+  if (n.includes('table') || n.includes('desk')) return Table;
+  if (n.includes('decor') || n.includes('art') || n.includes('mirror')) return Palette;
+  return LayoutGrid;
+};
 
 const ProductListingPage: React.FC = () => {
   const { categoryId } = useParams();
@@ -58,13 +88,13 @@ const ProductListingPage: React.FC = () => {
           <div className="flex border border-gray-200 rounded-lg">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 ${viewMode === 'grid' ? 'bg-amber-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
+              className={`p-2 ${viewMode === 'grid' ? 'bg-stone-900 text-white' : 'text-gray-600 hover:text-gray-900'}`}
             >
               <Grid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 ${viewMode === 'list' ? 'bg-amber-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
+              className={`p-2 ${viewMode === 'list' ? 'bg-stone-900 text-white' : 'text-gray-600 hover:text-gray-900'}`}
             >
               <List className="w-4 h-4" />
             </button>
@@ -74,7 +104,7 @@ const ProductListingPage: React.FC = () => {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
             >
               <option value="featured">Featured</option>
               <option value="price-low">Price: Low to High</option>
@@ -99,22 +129,28 @@ const ProductListingPage: React.FC = () => {
           <div className="bg-white p-6 rounded-lg border border-gray-200">
             <div className="mb-6">
               <h3 className="font-semibold text-gray-900 mb-4">Categories</h3>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Link
                   to="/products"
-                  className={`block text-sm ${!categoryId ? 'text-amber-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${!categoryId ? 'bg-stone-900 text-white font-medium' : 'text-gray-600 hover:bg-stone-100 hover:text-gray-900'}`}
                 >
+                  <LayoutGrid className="w-4 h-4 shrink-0" />
                   All Products
                 </Link>
-                {categories.map((cat) => (
-                  <Link
-                    key={cat.id}
-                    to={`/products/${cat.id}`}
-                    className={`block text-sm ${categoryId === String(cat.id) ? 'text-amber-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
-                  >
-                    {cat.name}
-                  </Link>
-                ))}
+                {categories.map((cat) => {
+                  const Icon = getCategoryIcon(cat.name);
+                  const active = categoryId === String(cat.id);
+                  return (
+                    <Link
+                      key={cat.id}
+                      to={`/products/${cat.id}`}
+                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${active ? 'bg-stone-900 text-white font-medium' : 'text-gray-600 hover:bg-stone-100 hover:text-gray-900'}`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {cat.name}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -177,7 +213,7 @@ const ProductListingPage: React.FC = () => {
 
                     <div className={`p-6 ${viewMode === 'list' ? 'flex-1' : ''}`}>
                       <Link to={`/product/${product.id}`} className="block mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-amber-600 transition-colors">
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-terracotta-600 transition-colors">
                           {product.name}
                         </h3>
                       </Link>
@@ -206,7 +242,7 @@ const ProductListingPage: React.FC = () => {
 
                       <Link
                         to={`/product/${product.id}`}
-                        className="w-full bg-amber-600 text-white py-2 px-4 rounded-lg hover:bg-amber-700 transition-colors font-medium text-center block"
+                        className="w-full bg-stone-900 text-white py-2 px-4 rounded-lg hover:bg-stone-800 transition-colors font-medium text-center block"
                       >
                         View Details
                       </Link>

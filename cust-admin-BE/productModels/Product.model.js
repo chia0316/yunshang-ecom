@@ -53,6 +53,14 @@ Product.init(
       type: DataTypes.DECIMAL(6, 2),
       allowNull: true
     },
+    dimensions: {
+      type: DataTypes.STRING(200),
+      allowNull: true
+    },
+    video_filename: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
     lead_time_days: {
       type: DataTypes.INTEGER,
       allowNull: false,

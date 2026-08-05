@@ -43,7 +43,7 @@ const OrderStatusTimeline: React.FC<{ status: OrderStatus }> = ({ status }) => {
             <div
               className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium ${
                 index <= currentIndex
-                  ? 'bg-amber-600 text-white'
+                  ? 'bg-stone-900 text-white'
                   : 'bg-gray-200 text-gray-500'
               }`}
             >
@@ -51,7 +51,7 @@ const OrderStatusTimeline: React.FC<{ status: OrderStatus }> = ({ status }) => {
             </div>
             <span
               className={`mt-1 w-20 text-center text-xs ${
-                index <= currentIndex ? 'text-amber-700 font-medium' : 'text-gray-400'
+                index <= currentIndex ? 'text-terracotta-700 font-medium' : 'text-gray-400'
               }`}
             >
               {stage.label}
@@ -59,7 +59,7 @@ const OrderStatusTimeline: React.FC<{ status: OrderStatus }> = ({ status }) => {
           </div>
           {index < STAGES.length - 1 && (
             <div
-              className={`h-0.5 flex-1 ${index < currentIndex ? 'bg-amber-600' : 'bg-gray-200'}`}
+              className={`h-0.5 flex-1 ${index < currentIndex ? 'bg-stone-900' : 'bg-gray-200'}`}
             />
           )}
         </React.Fragment>
@@ -110,7 +110,7 @@ const AccountOrdersPage: React.FC = () => {
         <div className="text-center py-16 bg-white border border-gray-200 rounded-lg">
           <Package className="mx-auto w-12 h-12 text-gray-300 mb-4" />
           <p className="text-gray-600 mb-6">You haven&apos;t placed any orders yet.</p>
-          <Link to="/products" className="text-amber-600 hover:text-amber-700 font-medium">
+          <Link to="/products" className="text-terracotta-600 hover:text-terracotta-700 font-medium">
             Start shopping
           </Link>
         </div>
@@ -126,7 +126,7 @@ const AccountOrdersPage: React.FC = () => {
                     Placed on {new Date(order.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <span className="text-sm font-semibold text-amber-700">
+                <span className="text-sm font-semibold text-terracotta-700">
                   {STATUS_LABEL[order.status]}
                 </span>
               </div>
@@ -216,7 +216,7 @@ const AccountOrdersPage: React.FC = () => {
                   </button>
                   <Link
                     to="/products"
-                    className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium"
+                    className="px-4 py-2 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors text-sm font-medium"
                   >
                     Continue Shopping
                   </Link>

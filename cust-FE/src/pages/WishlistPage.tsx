@@ -27,7 +27,7 @@ const WishlistPage: React.FC = () => {
         <div className="text-center py-16 bg-white border border-gray-200 rounded-lg">
           <Heart className="mx-auto w-12 h-12 text-gray-300 mb-4" />
           <p className="text-gray-600 mb-6">Your wishlist is empty.</p>
-          <Link to="/products" className="text-amber-600 hover:text-amber-700 font-medium">
+          <Link to="/products" className="text-terracotta-600 hover:text-terracotta-700 font-medium">
             Browse products
           </Link>
         </div>
@@ -58,7 +58,7 @@ const WishlistPage: React.FC = () => {
                 </div>
                 <div className="p-4">
                   <Link to={`/product/${product.id}`}>
-                    <h3 className="font-semibold text-gray-900 hover:text-amber-600 transition-colors mb-2">
+                    <h3 className="font-semibold text-gray-900 hover:text-terracotta-600 transition-colors mb-2">
                       {product.name}
                     </h3>
                   </Link>
@@ -79,7 +79,7 @@ const WishlistPage: React.FC = () => {
                       })
                     }
                     disabled={product.stock_qty === 0}
-                    className="w-full flex items-center justify-center gap-2 bg-amber-600 text-white py-2 rounded-lg hover:bg-amber-700 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-2 rounded-lg hover:bg-stone-800 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     <ShoppingCart className="w-4 h-4" />
                     {product.stock_qty === 0 ? 'Out of Stock' : 'Add to Cart'}

@@ -59,6 +59,10 @@ export function getProductImageUrl(filename: string): string {
   return `${API_URL}/static/images/${filename}`;
 }
 
+export function getProductVideoUrl(filename: string): string {
+  return `${API_URL}/static/videos/${filename}`;
+}
+
 // For endpoints that return a file (e.g. Excel export) instead of JSON —
 // fetches with the auth header apiFetch would normally add, then triggers
 // a browser download of the response body.

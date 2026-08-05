@@ -18,9 +18,11 @@ export interface Product {
   sale_price: string | null;
   stock_qty: number;
   weight_kg: string | null;
+  dimensions: string | null;
   lead_time_days: number;
   tags: string[];
   image_filenames: string[];
+  video_filename: string | null;
   is_featured: boolean;
   is_active: boolean;
   createdAt: string;
@@ -158,6 +160,13 @@ export interface BulkUploadReportRow {
   sku: string;
   status: "created" | "updated" | "error";
   message?: string;
+  imageIssues?: string[];
+}
+
+export interface ZipReportEntry {
+  filename: string;
+  status: "skipped" | "overwritten";
+  reason: string;
 }
 
 export interface BulkUploadResponse {
@@ -168,6 +177,7 @@ export interface BulkUploadResponse {
     errors: number;
   };
   report: BulkUploadReportRow[];
+  zipReport?: ZipReportEntry[];
 }
 
 export interface DeliverySlot {

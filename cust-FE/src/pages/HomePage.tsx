@@ -81,7 +81,7 @@ const HomePage: React.FC = () => {
             
             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
               Crafted for
-              <span className="block text-amber-400">Modern Living</span>
+              <span className="block text-terracotta-400">Modern Living</span>
             </h1>
             
             <p className="text-xl md:text-2xl mb-8 text-gray-200 max-w-2xl mx-auto leading-relaxed">
@@ -91,7 +91,7 @@ const HomePage: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/products"
-                className="inline-flex items-center px-8 py-4 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-semibold text-lg group"
+                className="inline-flex items-center px-8 py-4 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-semibold text-lg group"
               >
                 Shop Collection
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -133,7 +133,7 @@ const HomePage: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
                 <div className="absolute bottom-4 left-4 right-4">
                   <h3 className="text-white text-2xl font-bold mb-2">{category.name}</h3>
-                  <span className="text-amber-400 font-medium group-hover:text-amber-300 transition-colors">
+                  <span className="text-terracotta-400 font-medium group-hover:text-terracotta-300 transition-colors">
                     Explore Collection →
                   </span>
                 </div>
@@ -162,7 +162,7 @@ const HomePage: React.FC = () => {
                   <div className="p-8 text-white">
                     <h3 className="text-3xl md:text-4xl font-bold mb-3">{promo.title}</h3>
                     <p className="text-lg md:text-xl mb-6 text-gray-200">{promo.description}</p>
-                    <button className="inline-flex items-center px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-semibold">
+                    <button className="inline-flex items-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-semibold">
                       {promo.cta}
                       <ArrowRight className="ml-2 w-4 h-4" />
                     </button>
@@ -209,17 +209,17 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="bg-amber-600 py-16">
+      <section className="bg-terracotta-600 py-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
             Ready to Transform Your Space?
           </h2>
-          <p className="text-xl text-amber-100 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-terracotta-100 mb-8 max-w-2xl mx-auto">
             Browse our complete collection and find the perfect pieces for your home today.
           </p>
           <Link
             to="/products"
-            className="inline-flex items-center px-8 py-4 bg-white text-amber-600 rounded-lg hover:bg-gray-100 transition-colors font-semibold text-lg group"
+            className="inline-flex items-center px-8 py-4 bg-white text-terracotta-600 rounded-lg hover:bg-gray-100 transition-colors font-semibold text-lg group"
           >
             Start Shopping
             <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -236,7 +236,7 @@ const HomePage: React.FC = () => {
           </p>
           <Link
             to="/visit-us"
-            className="inline-flex items-center px-6 py-3 border-2 border-amber-600 text-amber-600 rounded-lg hover:bg-amber-600 hover:text-white transition-colors font-semibold"
+            className="inline-flex items-center px-6 py-3 border-2 border-terracotta-600 text-terracotta-600 rounded-lg hover:bg-terracotta-600 hover:text-white transition-colors font-semibold"
           >
             Visit Us / Enquire
             <ArrowRight className="ml-2 w-4 h-4" />

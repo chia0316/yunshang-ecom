@@ -34,18 +34,29 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
+// Admin-driven status update — this is how a cash payment gets confirmed
+// (no gateway webhook exists for Cash). Mirrors what simulate-confirm does
+// for the other methods: flipping the parent Order to 'paid' once the
+// payment is marked completed, so this behaves the same as a real gateway
+// confirmation would.
 router.patch('/:pid', authenticate, async (req, res) => {
   if (!req.isAdmin) {
     return res.status(403).json({ error: 'Unauthorized request' });
   }
   const { status, gateway_reference, raw_response } = req.body;
   try {
-    const updates = { status, gateway_reference, raw_response };
-    if (status === 'completed') updates.paid_at = new Date();
-    const updated = await Payment.update(updates, { where: { id: req.params.pid } });
-    if (updated[0] === 0) {
+    const payment = await Payment.findByPk(req.params.pid);
+    if (!payment) {
       return res.status(404).json({ message: 'Payment not found', success: false });
     }
+    const updates = { status, gateway_reference, raw_response };
+    if (status === 'completed') updates.paid_at = new Date();
+    await payment.update(updates);
+
+    if (status === 'completed') {
+      await Order.update({ status: 'paid' }, { where: { id: payment.order_id } });
+    }
+
     return res.json({ message: 'Payment updated successfully!', success: true });
   } catch (err) {
     return res.status(500).json({ error: err.message });

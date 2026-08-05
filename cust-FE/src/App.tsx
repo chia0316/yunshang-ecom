@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { WishlistProvider } from './context/WishlistContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import WhatsAppButton from './components/WhatsAppButton';
 import HomePage from './pages/HomePage';
 import ProductListingPage from './pages/ProductListingPage';
 import ProductDetailPage from './pages/ProductDetailPage';
@@ -41,6 +42,7 @@ function App() {
                 </Routes>
               </main>
               <Footer />
+              <WhatsAppButton />
             </div>
           </Router>
         </WishlistProvider>

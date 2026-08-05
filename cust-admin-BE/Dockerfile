@@ -7,9 +7,10 @@ RUN npm ci --omit=dev
 
 COPY . .
 
-# Product photos and the docker-entrypoint migration step both need this to
-# exist; the volume mount in docker-compose.yml persists it across restarts.
-RUN mkdir -p public/images
+# Product photos/videos and the docker-entrypoint migration step both need
+# these to exist; the volume mounts in docker-compose.yml persist them across
+# restarts.
+RUN mkdir -p public/images public/videos
 
 EXPOSE 8090
 

@@ -37,7 +37,7 @@ const LoginPage: React.FC = () => {
               onChange={(e) => setUsername(e.target.value)}
               required
               autoFocus
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
             />
           </div>
           <div>
@@ -47,21 +47,21 @@ const LoginPage: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
             />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-amber-600 text-white py-3 px-4 rounded-lg hover:bg-amber-700 transition-colors font-semibold disabled:opacity-50"
+            className="w-full bg-stone-900 text-white py-3 px-4 rounded-lg hover:bg-stone-800 transition-colors font-semibold disabled:opacity-50"
           >
             {loading ? 'Signing in...' : 'Log In'}
           </button>
         </form>
         <p className="text-sm text-gray-600 mt-6 text-center">
           Don&apos;t have an account?{' '}
-          <Link to="/signup" className="text-amber-600 hover:text-amber-700 font-medium">
+          <Link to="/signup" className="text-terracotta-600 hover:text-terracotta-700 font-medium">
             Sign up
           </Link>
         </p>

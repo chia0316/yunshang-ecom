@@ -67,7 +67,7 @@ const VisitUsPage: React.FC = () => {
         </p>
         <Link
           to="/"
-          className="inline-block bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition-colors font-medium"
+          className="inline-block bg-stone-900 text-white py-3 px-6 rounded-lg hover:bg-stone-800 transition-colors font-medium"
         >
           Back to Home
         </Link>
@@ -94,7 +94,7 @@ const VisitUsPage: React.FC = () => {
                 name="type"
                 value={formData.type}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
               >
                 {TYPE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -113,7 +113,7 @@ const VisitUsPage: React.FC = () => {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                 />
               </div>
               <div>
@@ -123,7 +123,7 @@ const VisitUsPage: React.FC = () => {
                   name="mobile"
                   value={formData.mobile}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                 />
               </div>
               <div className="md:col-span-2">
@@ -134,7 +134,7 @@ const VisitUsPage: React.FC = () => {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                 />
               </div>
 
@@ -148,7 +148,7 @@ const VisitUsPage: React.FC = () => {
                       min={new Date().toISOString().slice(0, 10)}
                       value={formData.preferred_date}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -159,7 +159,7 @@ const VisitUsPage: React.FC = () => {
                       placeholder="e.g. Afternoon"
                       value={formData.preferred_time}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
                   </div>
                 </>
@@ -172,7 +172,7 @@ const VisitUsPage: React.FC = () => {
                   rows={4}
                   value={formData.message}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -182,7 +182,7 @@ const VisitUsPage: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition-colors font-semibold disabled:opacity-50"
+              className="w-full bg-stone-900 text-white py-3 px-6 rounded-lg hover:bg-stone-800 transition-colors font-semibold disabled:opacity-50"
             >
               {submitting ? 'Submitting...' : 'Submit Request'}
             </button>
@@ -192,15 +192,15 @@ const VisitUsPage: React.FC = () => {
         <div className="bg-gray-50 rounded-lg p-6 h-fit space-y-4">
           <h2 className="text-lg font-bold text-gray-900">Showroom</h2>
           <div className="flex items-start space-x-3">
-            <MapPin className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <MapPin className="w-5 h-5 text-terracotta-600 flex-shrink-0 mt-0.5" />
             <span className="text-gray-700 text-sm">Singapore</span>
           </div>
           <div className="flex items-start space-x-3">
-            <Phone className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <Phone className="w-5 h-5 text-terracotta-600 flex-shrink-0 mt-0.5" />
             <span className="text-gray-700 text-sm">+65 6123 4567</span>
           </div>
           <div className="flex items-start space-x-3">
-            <MailIcon className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <MailIcon className="w-5 h-5 text-terracotta-600 flex-shrink-0 mt-0.5" />
             <span className="text-gray-700 text-sm">hello@casayun.sg</span>
           </div>
         </div>

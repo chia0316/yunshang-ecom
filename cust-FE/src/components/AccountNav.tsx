@@ -18,7 +18,7 @@ const AccountNav: React.FC = () => {
           to={link.to}
           className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
             location.pathname === link.to
-              ? 'border-amber-600 text-amber-600'
+              ? 'border-terracotta-600 text-terracotta-600'
               : 'border-transparent text-gray-600 hover:text-gray-900'
           }`}
         >

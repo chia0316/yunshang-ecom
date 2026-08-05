@@ -70,7 +70,7 @@ const CartPage: React.FC = () => {
           <p className="text-gray-600 mb-8">Start shopping to add items to your cart</p>
           <Link
             to="/products"
-            className="inline-flex items-center px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
+            className="inline-flex items-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-medium"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Continue Shopping
@@ -85,7 +85,7 @@ const CartPage: React.FC = () => {
       <div className="flex items-center mb-8">
         <Link
           to="/products"
-          className="flex items-center text-amber-600 hover:text-amber-700 font-medium mr-4"
+          className="flex items-center text-terracotta-600 hover:text-terracotta-700 font-medium mr-4"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           Continue Shopping
@@ -177,7 +177,7 @@ const CartPage: React.FC = () => {
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value)}
                   placeholder="Enter code"
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                 />
                 <button
                   type="submit"
@@ -194,7 +194,7 @@ const CartPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAvailable(!showAvailable)}
-                  className="flex items-center text-sm text-amber-600 hover:text-amber-700 font-medium"
+                  className="flex items-center text-sm text-terracotta-600 hover:text-terracotta-700 font-medium"
                 >
                   {showAvailable ? 'Hide' : 'View'} available codes ({availableCoupons.length})
                   {showAvailable ? (
@@ -222,7 +222,7 @@ const CartPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => applyCouponCode(c.code)}
-                          className="text-sm px-3 py-1.5 border border-amber-600 text-amber-600 rounded-lg hover:bg-amber-600 hover:text-white transition-colors font-medium"
+                          className="text-sm px-3 py-1.5 border border-terracotta-600 text-terracotta-600 rounded-lg hover:bg-terracotta-600 hover:text-white transition-colors font-medium"
                         >
                           Apply
                         </button>
@@ -270,7 +270,7 @@ const CartPage: React.FC = () => {
 
           <Link
             to="/checkout"
-            className="w-full bg-amber-600 text-white py-4 px-6 rounded-lg hover:bg-amber-700 transition-colors font-semibold text-lg text-center block"
+            className="w-full bg-stone-900 text-white py-4 px-6 rounded-lg hover:bg-stone-800 transition-colors font-semibold text-lg text-center block"
           >
             Proceed to Checkout
           </Link>

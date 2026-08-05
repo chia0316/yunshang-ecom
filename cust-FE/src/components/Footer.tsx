@@ -4,7 +4,7 @@ import { Mail, Phone, MapPin } from 'lucide-react';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-gray-900 text-white">
+    <footer className="bg-stone-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Company Info */}
@@ -19,10 +19,10 @@ const Footer: React.FC = () => {
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">Quick Links</h3>
             <div className="space-y-2">
-              <Link to="/products" className="block text-gray-300 hover:text-amber-500 transition-colors text-sm">
+              <Link to="/products" className="block text-gray-300 hover:text-terracotta-400 transition-colors text-sm">
                 All Products
               </Link>
-              <Link to="/account/orders" className="block text-gray-300 hover:text-amber-500 transition-colors text-sm">
+              <Link to="/account/orders" className="block text-gray-300 hover:text-terracotta-400 transition-colors text-sm">
                 Track Order
               </Link>
             </div>
@@ -32,10 +32,10 @@ const Footer: React.FC = () => {
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">Customer Service</h3>
             <div className="space-y-2">
-              <Link to="/visit-us" className="block text-gray-300 hover:text-amber-500 transition-colors text-sm">
+              <Link to="/visit-us" className="block text-gray-300 hover:text-terracotta-400 transition-colors text-sm">
                 Contact Us
               </Link>
-              <a href="#" className="block text-gray-300 hover:text-amber-500 transition-colors text-sm">
+              <a href="#" className="block text-gray-300 hover:text-terracotta-400 transition-colors text-sm">
                 Shipping Info
               </a>
             </div>
@@ -46,22 +46,22 @@ const Footer: React.FC = () => {
             <h3 className="font-semibold text-lg">Contact</h3>
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
-                <MapPin className="w-4 h-4 text-amber-500" />
+                <MapPin className="w-4 h-4 text-terracotta-400" />
                 <span className="text-gray-300 text-sm">Singapore</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Phone className="w-4 h-4 text-amber-500" />
+                <Phone className="w-4 h-4 text-terracotta-400" />
                 <span className="text-gray-300 text-sm">+65 6123 4567</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Mail className="w-4 h-4 text-amber-500" />
+                <Mail className="w-4 h-4 text-terracotta-400" />
                 <span className="text-gray-300 text-sm">hello@casayun.sg</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-gray-700 mt-8 pt-8 text-center">
+        <div className="border-t border-stone-700 mt-8 pt-8 text-center">
           <p className="text-gray-400 text-sm">
             © 2026 Casa Yun. All rights reserved.
           </p>

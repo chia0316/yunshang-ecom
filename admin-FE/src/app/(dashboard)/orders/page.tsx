@@ -55,6 +55,28 @@ const STATUS_VARIANT: Record<
   cancelled: "destructive",
 };
 
+const PAYMENT_STATUS_VARIANT: Record<
+  string,
+  "outline" | "info" | "warning" | "success" | "destructive"
+> = {
+  pending: "outline",
+  completed: "success",
+  failed: "destructive",
+  refunded: "warning",
+};
+
+const CASH_PAYMENT_DAYS = 7;
+
+function isCashPaymentOverdue(order: Order): boolean {
+  const payment = order.payments?.[0];
+  if (!payment || payment.method !== "Cash" || payment.status !== "pending") {
+    return false;
+  }
+  const dueAt = new Date(order.created_at);
+  dueAt.setDate(dueAt.getDate() + CASH_PAYMENT_DAYS);
+  return new Date() > dueAt;
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +134,21 @@ export default function OrdersPage() {
       setOrders((prev) =>
         prev.map((o) => (o.id === order.id ? { ...o, status } : o))
       );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
+    }
+  };
+
+  const handleMarkPaid = async (order: Order) => {
+    const payment = order.payments?.[0];
+    if (!payment) return;
+    try {
+      await apiFetch(`/api/payments/${payment.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "completed" }),
+      });
+      toast.success(`Payment for order #${order.id} marked as received`);
+      loadOrders();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
     }
@@ -233,6 +270,7 @@ export default function OrdersPage() {
               <TableHead>Customer</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Coupon</TableHead>
+              <TableHead>Payment</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Placed</TableHead>
               <TableHead className="w-24" />
@@ -241,13 +279,13 @@ export default function OrdersPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : orders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   No orders match these filters.
                 </TableCell>
               </TableRow>
@@ -273,6 +311,36 @@ export default function OrdersPage() {
                         <div className="text-muted-foreground">
                           -${Number(order.discount_amount ?? 0).toFixed(2)}
                         </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {order.payments && order.payments.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span>{order.payments[0].method}</span>
+                          <Badge variant={PAYMENT_STATUS_VARIANT[order.payments[0].status] ?? "outline"}>
+                            {order.payments[0].status}
+                          </Badge>
+                        </div>
+                        {isCashPaymentOverdue(order) && (
+                          <Badge variant="destructive" className="w-fit">
+                            Overdue
+                          </Badge>
+                        )}
+                        {order.payments[0].method === "Cash" &&
+                          order.payments[0].status === "pending" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => handleMarkPaid(order)}
+                            >
+                              Mark as Paid
+                            </Button>
+                          )}
                       </div>
                     ) : (
                       <span className="text-muted-foreground">—</span>

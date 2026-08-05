@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Heart, Share, Minus, Plus, ShoppingCart, Truck, Shield } from 'lucide-react';
-import { apiFetch, getProductImageUrl } from '../lib/api';
+import { Heart, Share, Minus, Plus, ShoppingCart, Truck, Shield, Play } from 'lucide-react';
+import { apiFetch, getProductImageUrl, getProductVideoUrl } from '../lib/api';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import type { Product } from '../lib/types';
@@ -37,7 +37,7 @@ const ProductDetailPage: React.FC = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-4">Product not found</h1>
-        <Link to="/products" className="text-amber-600 hover:text-amber-700">
+        <Link to="/products" className="text-terracotta-600 hover:text-terracotta-700">
           Browse all products
         </Link>
       </div>
@@ -45,7 +45,12 @@ const ProductDetailPage: React.FC = () => {
   }
 
   const effectivePrice = product.sale_price ? Number(product.sale_price) : Number(product.price);
-  const images = product.image_filenames.length > 0 ? product.image_filenames : [undefined];
+  const imageFilenames = product.image_filenames.length > 0 ? product.image_filenames : [undefined];
+  const videoUrl = getProductVideoUrl(product.video_filename);
+  const media: { type: 'image' | 'video'; src: string }[] = [
+    ...imageFilenames.map((filename) => ({ type: 'image' as const, src: getProductImageUrl(filename) })),
+    ...(videoUrl ? [{ type: 'video' as const, src: videoUrl }] : []),
+  ];
   const inStock = product.stock_qty > 0;
 
   const handleAddToCart = () => {
@@ -79,28 +84,51 @@ const ProductDetailPage: React.FC = () => {
         {/* Product Images */}
         <div className="space-y-4">
           <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-            <img
-              src={getProductImageUrl(images[selectedImage])}
-              alt={product.name}
-              className="w-full h-full object-cover"
-            />
+            {media[selectedImage].type === 'video' ? (
+              <video
+                key={media[selectedImage].src}
+                src={media[selectedImage].src}
+                controls
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img
+                src={media[selectedImage].src}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+            )}
           </div>
 
-          {images.length > 1 && (
+          {media.length > 1 && (
             <div className="grid grid-cols-4 gap-4">
-              {images.map((image, index) => (
+              {media.map((item, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}
-                  className={`aspect-square bg-gray-100 rounded-lg overflow-hidden ${
-                    selectedImage === index ? 'ring-2 ring-amber-600' : ''
+                  className={`relative aspect-square bg-gray-100 rounded-lg overflow-hidden ${
+                    selectedImage === index ? 'ring-2 ring-terracotta-600' : ''
                   }`}
                 >
-                  <img
-                    src={getProductImageUrl(image)}
-                    alt={`${product.name} ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
+                  {item.type === 'video' ? (
+                    <>
+                      <video
+                        src={item.src}
+                        muted
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <Play className="w-6 h-6 text-white fill-current" />
+                      </span>
+                    </>
+                  ) : (
+                    <img
+                      src={item.src}
+                      alt={`${product.name} ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </button>
               ))}
             </div>
@@ -111,7 +139,7 @@ const ProductDetailPage: React.FC = () => {
         <div className="space-y-6">
           <div>
             {product.brand && (
-              <p className="text-sm font-medium text-amber-600 mb-2">{product.brand}</p>
+              <p className="text-sm font-medium text-terracotta-600 mb-2">{product.brand}</p>
             )}
             <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.name}</h1>
 
@@ -156,15 +184,9 @@ const ProductDetailPage: React.FC = () => {
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-
-              {inStock ? (
-                <span className="text-green-600 font-medium">In Stock ({product.stock_qty})</span>
-              ) : (
-                <span className="text-red-600 font-medium">Out of Stock</span>
-              )}
             </div>
             {product.lead_time_days > 0 && (
-              <p className="text-sm text-amber-600">
+              <p className="text-sm text-terracotta-600">
                 Estimated delivery lead time: ~{Math.round(product.lead_time_days / 7)} week
                 {Math.round(product.lead_time_days / 7) === 1 ? '' : 's'}
               </p>
@@ -176,7 +198,7 @@ const ProductDetailPage: React.FC = () => {
             <button
               onClick={handleAddToCart}
               disabled={!inStock}
-              className="w-full bg-amber-600 text-white py-4 px-6 rounded-lg hover:bg-amber-700 transition-colors font-semibold text-lg flex items-center justify-center space-x-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="w-full bg-stone-900 text-white py-4 px-6 rounded-lg hover:bg-stone-800 transition-colors font-semibold text-lg flex items-center justify-center space-x-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <ShoppingCart className="w-5 h-5" />
               <span>{inStock ? 'Add to Cart' : 'Out of Stock'}</span>
@@ -203,12 +225,12 @@ const ProductDetailPage: React.FC = () => {
           </div>
 
           {/* Specifications */}
-          {product.weight_kg && (
+          {product.dimensions && (
             <div className="border-t pt-6">
               <h3 className="font-semibold text-gray-900 mb-4">Specifications</h3>
               <div className="flex justify-between">
-                <span className="text-gray-600">Weight:</span>
-                <span className="font-medium">{product.weight_kg} kg</span>
+                <span className="text-gray-600">Dimensions:</span>
+                <span className="font-medium">{product.dimensions}</span>
               </div>
             </div>
           )}
@@ -217,7 +239,7 @@ const ProductDetailPage: React.FC = () => {
           <div className="bg-gray-50 p-6 rounded-lg">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center space-x-3">
-                <Truck className="w-6 h-6 text-amber-600" />
+                <Truck className="w-6 h-6 text-terracotta-600" />
                 <div>
                   <p className="font-medium text-sm">Island-wide Delivery</p>
                   <p className="text-xs text-gray-500">Scheduled after order confirmation</p>
@@ -225,7 +247,7 @@ const ProductDetailPage: React.FC = () => {
               </div>
 
               <div className="flex items-center space-x-3">
-                <Shield className="w-6 h-6 text-amber-600" />
+                <Shield className="w-6 h-6 text-terracotta-600" />
                 <div>
                   <p className="font-medium text-sm">Warranty Included</p>
                   <p className="text-xs text-gray-500">Manufacturing defects</p>

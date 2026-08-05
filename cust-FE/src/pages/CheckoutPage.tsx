@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppliedCoupon } from '../hooks/useAppliedCoupon';
 import { useFreeDeliveryThreshold } from '../hooks/useFreeDeliveryThreshold';
+import { useCompanySettings } from '../hooks/useCompanySettings';
 import { apiFetch, ApiError } from '../lib/api';
 import type { Order } from '../lib/types';
 
@@ -56,6 +57,7 @@ const CheckoutPage: React.FC = () => {
 
   const subtotal = state.total;
   const freeDeliveryThreshold = useFreeDeliveryThreshold();
+  const company = useCompanySettings();
   const { coupon } = useAppliedCoupon(state.couponCode, subtotal);
   const discountAmount = coupon?.discountAmount || 0;
   const shipping = subtotal >= freeDeliveryThreshold ? 0 : 50;
@@ -160,7 +162,7 @@ const CheckoutPage: React.FC = () => {
     `w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
       accountConflictFields.includes(name)
         ? 'border-red-400 focus:ring-red-400'
-        : 'border-gray-200 focus:ring-amber-500'
+        : 'border-gray-200 focus:ring-terracotta-500'
     }`;
 
   const placeOrder = async () => {
@@ -188,6 +190,9 @@ const CheckoutPage: React.FC = () => {
             price: item.price,
             name: item.name,
           })),
+          // Informational only (used for the confirmation email content) —
+          // the actual Payment record below is the source of truth.
+          paymentMethod,
         }),
       });
 
@@ -201,17 +206,24 @@ const CheckoutPage: React.FC = () => {
         }),
       });
 
-      // No payment gateway is integrated yet — this simulates the
-      // confirmation a real gateway webhook would send, so the order flow
-      // can be exercised end-to-end. Swap for a real gateway redirect/
-      // webhook later; see routes/payment.js simulate-confirm on the backend.
-      setProcessingLabel(`Confirming ${paymentMethod} payment...`);
-      const { order: confirmedOrder } = await apiFetch<{ order: Order }>(
-        `/api/payments/${payment.id}/simulate-confirm`,
-        { method: 'POST' }
-      );
+      if (paymentMethod === 'Cash') {
+        // Cash is paid in person at the office, not confirmed automatically
+        // — the order/payment stay pending until an admin manually confirms
+        // receipt (see PATCH /api/payments/:pid on the backend).
+        setPlacedOrder(orderRes.order);
+      } else {
+        // No payment gateway is integrated yet — this simulates the
+        // confirmation a real gateway webhook would send, so the order flow
+        // can be exercised end-to-end. Swap for a real gateway redirect/
+        // webhook later; see routes/payment.js simulate-confirm on the backend.
+        setProcessingLabel(`Confirming ${paymentMethod} payment...`);
+        const { order: confirmedOrder } = await apiFetch<{ order: Order }>(
+          `/api/payments/${payment.id}/simulate-confirm`,
+          { method: 'POST' }
+        );
+        setPlacedOrder(confirmedOrder);
+      }
 
-      setPlacedOrder(confirmedOrder);
       clearCart();
       setStep('confirmation');
     } catch (err) {
@@ -226,7 +238,7 @@ const CheckoutPage: React.FC = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-4">Your cart is empty</h1>
-        <Link to="/products" className="text-amber-600 hover:text-amber-700">
+        <Link to="/products" className="text-terracotta-600 hover:text-terracotta-700">
           Continue shopping
         </Link>
       </div>
@@ -238,7 +250,7 @@ const CheckoutPage: React.FC = () => {
       <div className="flex items-center mb-8">
         <Link
           to="/cart"
-          className="flex items-center text-amber-600 hover:text-amber-700 font-medium mr-4"
+          className="flex items-center text-terracotta-600 hover:text-terracotta-700 font-medium mr-4"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to Cart
@@ -251,12 +263,12 @@ const CheckoutPage: React.FC = () => {
         {STEPS.map((s, index) => (
           <React.Fragment key={s}>
             <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-              stepIndex >= index ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-600'
+              stepIndex >= index ? 'bg-stone-900 text-white' : 'bg-gray-200 text-gray-600'
             }`}>
               {stepIndex > index ? <Check className="w-5 h-5" /> : index + 1}
             </div>
             {index < STEPS.length - 1 && (
-              <div className={`flex-1 h-1 mx-4 ${stepIndex > index ? 'bg-amber-600' : 'bg-gray-200'}`} />
+              <div className={`flex-1 h-1 mx-4 ${stepIndex > index ? 'bg-stone-900' : 'bg-gray-200'}`} />
             )}
           </React.Fragment>
         ))}
@@ -278,7 +290,7 @@ const CheckoutPage: React.FC = () => {
                       required
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
                   </div>
 
@@ -290,7 +302,7 @@ const CheckoutPage: React.FC = () => {
                       required
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
                   </div>
 
@@ -302,7 +314,7 @@ const CheckoutPage: React.FC = () => {
                       required
                       value={formData.contact}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
                   </div>
 
@@ -315,7 +327,7 @@ const CheckoutPage: React.FC = () => {
                             type="checkbox"
                             checked={useDifferentAddress}
                             onChange={(e) => toggleDifferentAddress(e.target.checked)}
-                            className="mr-2 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                            className="mr-2 rounded border-gray-300 text-terracotta-600 focus:ring-terracotta-500"
                           />
                           Ship to a different address
                         </label>
@@ -327,7 +339,7 @@ const CheckoutPage: React.FC = () => {
                       required
                       value={formData.address}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
                   </div>
 
@@ -339,13 +351,13 @@ const CheckoutPage: React.FC = () => {
                       required
                       value={formData.postal}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <Truck className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-3 bg-terracotta-50 border border-terracotta-200 rounded-lg p-4">
+                      <Truck className="w-5 h-5 text-terracotta-600 flex-shrink-0 mt-0.5" />
                       <div className="text-sm text-gray-700">
                         <p className="font-medium text-gray-900">Delivery is arranged after checkout</p>
                         <p className="mt-1">
@@ -368,7 +380,7 @@ const CheckoutPage: React.FC = () => {
                       rows={2}
                       value={formData.remarks}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -378,7 +390,7 @@ const CheckoutPage: React.FC = () => {
                 <div />
                 <button
                   type="submit"
-                  className="flex items-center px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium ml-auto"
+                  className="flex items-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-medium ml-auto"
                 >
                   Continue
                 </button>
@@ -390,7 +402,7 @@ const CheckoutPage: React.FC = () => {
             <form onSubmit={handleAccountSubmit} className="space-y-8">
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <div className="flex items-start gap-3 mb-6">
-                  <ShieldCheck className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <ShieldCheck className="w-6 h-6 text-terracotta-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">Create your account</h2>
                     <p className="text-sm text-gray-600 mt-1">
@@ -444,7 +456,7 @@ const CheckoutPage: React.FC = () => {
                       title="Minimum eight characters, at least one letter, one number and one special character"
                       value={accountForm.password}
                       onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Min. 8 characters with a letter, a number, and a special character (@$!%*#?&).
@@ -454,7 +466,7 @@ const CheckoutPage: React.FC = () => {
                 {accountError && <p className="text-sm text-red-600 mt-4">{accountError}</p>}
                 <p className="text-sm text-gray-600 mt-6">
                   Already have an account?{' '}
-                  <Link to="/login" className="text-amber-600 hover:text-amber-700 font-medium">
+                  <Link to="/login" className="text-terracotta-600 hover:text-terracotta-700 font-medium">
                     Log in
                   </Link>{' '}
                   instead.
@@ -473,7 +485,7 @@ const CheckoutPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={creatingAccount}
-                  className="flex items-center px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium disabled:opacity-50"
+                  className="flex items-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-medium disabled:opacity-50"
                 >
                   {creatingAccount ? 'Creating account...' : 'Create Account & Continue'}
                 </button>
@@ -493,7 +505,7 @@ const CheckoutPage: React.FC = () => {
                       onClick={() => setPaymentMethod(method)}
                       className={`px-4 py-4 border rounded-lg text-sm font-medium ${
                         paymentMethod === method
-                          ? 'border-amber-600 bg-amber-50 text-amber-600'
+                          ? 'border-terracotta-600 bg-terracotta-50 text-terracotta-600'
                           : 'border-gray-200 text-gray-700 hover:border-gray-300'
                       }`}
                     >
@@ -505,7 +517,7 @@ const CheckoutPage: React.FC = () => {
                   {paymentMethod === 'PayNow' && "You'll receive a PayNow QR code to complete payment after placing your order."}
                   {paymentMethod === 'NETS' && "You'll receive NETS payment instructions after placing your order."}
                   {paymentMethod === 'Card' && 'Card payment instructions will be sent after placing your order.'}
-                  {paymentMethod === 'Cash' && 'Pay by cash upon delivery.'}
+                  {paymentMethod === 'Cash' && 'Pay in cash at our office within 7 days of placing your order.'}
                 </p>
                 {error && <p className="text-sm text-red-600 mt-4">{error}</p>}
               </div>
@@ -523,7 +535,7 @@ const CheckoutPage: React.FC = () => {
                   type="button"
                   onClick={placeOrder}
                   disabled={submitting}
-                  className="flex items-center px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium disabled:opacity-50"
+                  className="flex items-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-medium disabled:opacity-50"
                 >
                   <Lock className="w-4 h-4 mr-2" />
                   {submitting ? processingLabel || 'Placing Order...' : 'Place Order'}
@@ -541,15 +553,28 @@ const CheckoutPage: React.FC = () => {
               <p className="text-gray-600 mb-6">
                 Thank you for your purchase. Your order has been received and is being processed.
               </p>
-              <div className="bg-gray-50 p-4 rounded-lg mb-6">
+              <div className="bg-gray-50 p-4 rounded-lg mb-6 text-left">
                 <p className="text-sm text-gray-600">Order Number: <strong>#{placedOrder.id}</strong></p>
                 <p className="text-sm text-gray-600">Payment method: <strong>{paymentMethod}</strong></p>
-                <p className="text-sm text-gray-600">Payment status: <strong className="text-green-600">Paid (simulated)</strong></p>
+                {paymentMethod === 'Cash' ? (
+                  <>
+                    <p className="text-sm text-gray-600">
+                      Payment status: <strong className="text-terracotta-600">Pending — pay in cash at our office</strong>
+                    </p>
+                    <p className="text-sm text-gray-600 mt-2">
+                      Please pay within 7 days to confirm your order.
+                      {company.address && <> Our office: <strong>{company.address}</strong>.</>}
+                      {company.phone && <> Call us at <strong>{company.phone}</strong> to arrange a time.</>}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-600">Payment status: <strong className="text-green-600">Paid (simulated)</strong></p>
+                )}
               </div>
               <div className="flex justify-center gap-4">
                 <Link
                   to="/account/orders"
-                  className="inline-block bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition-colors font-medium"
+                  className="inline-block bg-stone-900 text-white py-3 px-6 rounded-lg hover:bg-stone-800 transition-colors font-medium"
                 >
                   Track Order
                 </Link>

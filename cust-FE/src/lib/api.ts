@@ -55,4 +55,9 @@ export function getProductImageUrl(filename?: string | null): string {
   return `${API_URL}/static/images/${filename}`;
 }
 
+export function getProductVideoUrl(filename?: string | null): string | null {
+  if (!filename) return null;
+  return `${API_URL}/static/videos/${filename}`;
+}
+
 export { API_URL };

@@ -63,7 +63,24 @@ router.get('/', authenticate, async (req, res) => {
       ],
       order: [['created_at', 'DESC']]
     });
-    res.json(rows);
+
+    const orderIds = rows.map((row) => row.id);
+    const payments = await Payment.findAll({
+      where: { order_id: { [Op.in]: orderIds } },
+      order: [['created_at', 'DESC']]
+    });
+    const paymentsByOrder = {};
+    payments.forEach((p) => {
+      paymentsByOrder[p.order_id] = paymentsByOrder[p.order_id] || [];
+      paymentsByOrder[p.order_id].push(p);
+    });
+
+    const withPayments = rows.map((row) => ({
+      ...row.toJSON(),
+      payments: paymentsByOrder[row.id] || []
+    }));
+
+    res.json(withPayments);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -289,7 +306,8 @@ router.post('/', authenticate, async (req, res) => {
     remarks,
     contact,
     orderDetails_list,
-    couponCode
+    couponCode,
+    paymentMethod
   } = req.body;
 
   try {
@@ -364,7 +382,10 @@ router.post('/', authenticate, async (req, res) => {
     );
 
     const userData = await User.findByPk(req.userId);
-    mailer.sendOrderConfirmationMail(userData, newOrder, orderDetails_list);
+    mailer.sendOrderConfirmationMail(userData, newOrder, orderDetails_list, {
+      paymentMethod,
+      company: getCompanySettings()
+    });
 
     return res.status(201).json({ order: newOrder });
   } catch (error) {

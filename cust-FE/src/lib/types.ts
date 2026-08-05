@@ -18,9 +18,11 @@ export interface Product {
   sale_price: string | null;
   stock_qty: number;
   weight_kg: string | null;
+  dimensions: string | null;
   lead_time_days: number;
   tags: string[];
   image_filenames: string[];
+  video_filename: string | null;
   is_featured: boolean;
   is_active: boolean;
 }
