@@ -1,27 +1,65 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, User, Menu, LogOut, Heart } from 'lucide-react';
-import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
-import { useWishlist } from '../context/WishlistContext';
+import React, { useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Search,
+  ShoppingCart,
+  User,
+  Menu,
+  LogOut,
+  Heart,
+  Clock,
+  Phone,
+} from "lucide-react";
+import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import { useWishlist } from "../context/WishlistContext";
+
+// TODO: dummy placeholder values — swap for the client's real hours/number
+// once provided.
+const OPERATING_HOURS = "Mon - Sun: 9:00 AM - 6:00 PM";
+const SUPPORT_NUMBER = "+65 8888 8888";
 
 const Header: React.FC = () => {
   const { state } = useCart();
   const { user, logout } = useAuth();
   const { items: wishlistItems } = useWishlist();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(
+    searchParams.get("search") || "",
+  );
   const itemCount = state.items.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleAccountClick = () => {
-    navigate(user ? '/account/orders' : '/login');
+    navigate(user ? "/account/orders" : "/login");
   };
 
   const handleWishlistClick = () => {
-    navigate(user ? '/wishlist' : '/login');
+    navigate(user ? "/wishlist" : "/login");
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = searchQuery.trim();
+    navigate(
+      trimmed ? `/products?search=${encodeURIComponent(trimmed)}` : "/products",
+    );
   };
 
   return (
     <header className="bg-stone-900 shadow-sm">
+      {/* Info bar */}
+      <div className="hidden lg:flex items-center justify-end gap-6 border-b border-stone-800 px-4 py-1.5 text-xs text-stone-400 sm:px-6 lg:px-8">
+        <span className="flex items-center gap-1.5">
+          <Clock className="w-3.5 h-3.5" />
+          {OPERATING_HOURS}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Phone className="w-3.5 h-3.5" />
+          Support: {SUPPORT_NUMBER}
+        </span>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -31,28 +69,48 @@ const Header: React.FC = () => {
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="text-stone-200 hover:text-terracotta-400 transition-colors font-medium">
+            <Link
+              to="/"
+              className="text-stone-200 hover:text-terracotta-400 transition-colors font-medium"
+            >
               Home
             </Link>
-            <Link to="/products" className="text-stone-200 hover:text-terracotta-400 transition-colors font-medium">
+            <Link
+              to="/products"
+              className="text-stone-200 hover:text-terracotta-400 transition-colors font-medium"
+            >
               Shop
             </Link>
-            <Link to="/visit-us" className="text-stone-200 hover:text-terracotta-400 transition-colors font-medium">
+            <Link
+              to="/visit-us"
+              className="text-stone-200 hover:text-terracotta-400 transition-colors font-medium"
+            >
               Visit Us
             </Link>
           </nav>
 
           {/* Search Bar */}
-          <div className="hidden md:flex items-center flex-1 max-w-md mx-8">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="hidden md:flex items-center flex-1 max-w-md mx-8"
+          >
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-400 w-4 h-4" />
+              <button
+                type="submit"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-400 hover:text-terracotta-400"
+                title="Search"
+              >
+                <Search className="w-4 h-4" />
+              </button>
               <input
                 type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search furniture..."
                 className="w-full pl-10 pr-4 py-2 bg-stone-800 border border-stone-700 text-white placeholder:text-stone-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
               />
             </div>
-          </div>
+          </form>
 
           {/* Actions */}
           <div className="flex items-center space-x-4">
@@ -70,7 +128,7 @@ const Header: React.FC = () => {
             </button>
 
             <button
-              onClick={() => navigate('/cart')}
+              onClick={() => navigate("/cart")}
               className="relative text-stone-200 hover:text-terracotta-400 transition-colors"
             >
               <ShoppingCart className="w-5 h-5" />
@@ -84,7 +142,7 @@ const Header: React.FC = () => {
             <button
               onClick={handleAccountClick}
               className="text-stone-200 hover:text-terracotta-400 transition-colors"
-              title={user ? 'My Orders' : 'Login'}
+              title={user ? "My Orders" : "Login"}
             >
               <User className="w-5 h-5" />
             </button>

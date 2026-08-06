@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Star, Play } from 'lucide-react';
+import { ArrowRight, Star } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import type { Category } from '../lib/types';
 
@@ -56,35 +56,27 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="space-y-16">
-      {/* Hero Video Banner */}
+      {/* Hero Banner */}
       <section className="relative h-screen bg-gray-900 overflow-hidden">
-        <div className="absolute inset-0 bg-black bg-opacity-40 z-10"></div>
-        
-        {/* Video Background Placeholder */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: 'url(https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1600)',
+            backgroundImage: 'url(/banner/hero-red-chair.png)',
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent"></div>
+          {/* Only darkens the left side, where the text sits — the right
+              side (chair) stays at full brightness. */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent"></div>
         </div>
         
         <div className="relative z-20 h-full flex items-center justify-center text-center text-white px-4">
           <div className="max-w-4xl">
-            {/* Play Button Overlay */}
-            <div className="mb-8">
-              <button className="inline-flex items-center justify-center w-20 h-20 bg-white bg-opacity-20 backdrop-blur-sm rounded-full hover:bg-opacity-30 transition-all duration-300 group">
-                <Play className="w-8 h-8 text-white ml-1 group-hover:scale-110 transition-transform" fill="currentColor" />
-              </button>
-            </div>
-            
             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
               Crafted for
               <span className="block text-terracotta-400">Modern Living</span>
             </h1>
             
-            <p className="text-xl md:text-2xl mb-8 text-gray-200 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-xl md:text-2xl mb-8 text-white max-w-2xl mx-auto leading-relaxed">
               Discover our curated collection of premium furniture designed to transform your space into a haven of comfort and style.
             </p>
             

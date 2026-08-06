@@ -119,18 +119,23 @@ droplet (e.g. `scp` to your Mac, or DigitalOcean Spaces) — a backup that
 only lives on the same disk as the database doesn't protect against a
 droplet failure.
 
-## Product images
+## Product images and videos
 
-Photos uploaded via the admin panel or referenced by SKU in bulk uploads
-live in the `backend_images` Docker volume, mounted at
+Photos uploaded via the admin panel (individually, via bulk-upload ZIP, or
+referenced by SKU) live in the `backend_images` Docker volume, mounted at
 `/app/public/images` inside the backend container, served at
-`http://<droplet-ip>:8090/static/images/<filename>`. This volume persists
-across `docker compose up --build`, but back it up too if you care about
-the images (not covered by the Postgres backup script above):
+`http://<droplet-ip>:8090/static/images/<filename>`. Product videos
+(uploaded individually via the product form, max 10MB each) live the same
+way in `backend_videos`, mounted at `/app/public/videos`, served at
+`http://<droplet-ip>:8090/static/videos/<filename>`. Both volumes persist
+across `docker compose up --build`, but back them up too if you care about
+the media (not covered by the Postgres backup script above):
 
 ```bash
 docker run --rm -v yunshang_backend_images:/data -v $(pwd)/backups:/backup \
   alpine tar czf /backup/images-$(date +%Y%m%d).tar.gz -C /data .
+docker run --rm -v yunshang_backend_videos:/data -v $(pwd)/backups:/backup \
+  alpine tar czf /backup/videos-$(date +%Y%m%d).tar.gz -C /data .
 ```
 
 ## Adding a domain + HTTPS later

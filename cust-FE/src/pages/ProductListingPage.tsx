@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import {
   Filter,
   Grid,
@@ -37,6 +37,8 @@ const getCategoryIcon = (name: string) => {
 
 const ProductListingPage: React.FC = () => {
   const { categoryId } = useParams();
+  const [searchParams] = useSearchParams();
+  const searchText = searchParams.get('search') || '';
   const { isWishlisted, toggleWishlist } = useWishlist();
   const [sortBy, setSortBy] = useState('featured');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -54,11 +56,12 @@ const ProductListingPage: React.FC = () => {
     setLoading(true);
     const params = new URLSearchParams({ page_size: '100' });
     if (categoryId) params.set('category_id', categoryId);
+    if (searchText) params.set('searchText', searchText);
 
     apiFetch<{ data: Product[] }>(`/api/products?${params.toString()}`, { auth: false })
       .then((res) => setProducts(res.data))
       .finally(() => setLoading(false));
-  }, [categoryId]);
+  }, [categoryId, searchText]);
 
   const effectivePrice = (product: Product) =>
     product.sale_price ? Number(product.sale_price) : Number(product.price);
@@ -72,15 +75,22 @@ const ProductListingPage: React.FC = () => {
     });
 
   const categoryName = categories.find((c) => String(c.id) === categoryId)?.name || 'All Products';
+  const pageTitle = searchText ? `Search results for "${searchText}"` : categoryName;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{categoryName}</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{pageTitle}</h1>
           <p className="text-gray-600">
             {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
+            {searchText && (
+              <>
+                {' '}
+                — <Link to="/products" className="text-terracotta-600 hover:text-terracotta-700">Clear search</Link>
+              </>
+            )}
           </p>
         </div>
 
