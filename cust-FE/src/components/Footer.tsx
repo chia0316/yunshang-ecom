@@ -48,13 +48,20 @@ const Footer: React.FC = () => {
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">Contact</h3>
             <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <MapPin className="w-4 h-4 text-terracotta-400" />
-                <span className="text-gray-300 text-sm">Singapore</span>
+              <div className="flex items-start space-x-2">
+                <MapPin className="w-4 h-4 text-terracotta-400 flex-shrink-0 mt-0.5" />
+                <a
+                  href="https://maps.app.goo.gl/CSAgXMJcTDLQdnYd8?g_st=iw"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-300 hover:text-terracotta-400 transition-colors text-sm"
+                >
+                  73 Ubi Rd 1, #09-64 Oxley Bizhub 1, Singapore 408733
+                </a>
               </div>
               <div className="flex items-center space-x-2">
                 <Phone className="w-4 h-4 text-terracotta-400" />
-                <span className="text-gray-300 text-sm">+65 6123 4567</span>
+                <span className="text-gray-300 text-sm">+65 8983 5830</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Mail className="w-4 h-4 text-terracotta-400" />

@@ -229,11 +229,18 @@ const VisitUsPage: React.FC = () => {
           <h2 className="text-lg font-bold text-gray-900">Showroom</h2>
           <div className="flex items-start space-x-3">
             <MapPin className="w-5 h-5 text-terracotta-600 flex-shrink-0 mt-0.5" />
-            <span className="text-gray-700 text-sm">Singapore</span>
+            <a
+              href="https://maps.app.goo.gl/CSAgXMJcTDLQdnYd8?g_st=iw"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-700 hover:text-terracotta-600 transition-colors text-sm"
+            >
+              73 Ubi Rd 1, #09-64 Oxley Bizhub 1, Singapore 408733
+            </a>
           </div>
           <div className="flex items-start space-x-3">
             <Phone className="w-5 h-5 text-terracotta-600 flex-shrink-0 mt-0.5" />
-            <span className="text-gray-700 text-sm">+65 6123 4567</span>
+            <span className="text-gray-700 text-sm">+65 8983 5830</span>
           </div>
           <div className="flex items-start space-x-3">
             <MailIcon className="w-5 h-5 text-terracotta-600 flex-shrink-0 mt-0.5" />
