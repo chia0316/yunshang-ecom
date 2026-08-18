@@ -18,10 +18,17 @@ const MANUAL_PAYMENT_METHODS: (typeof PAYMENT_METHODS)[number][] = ['PayNow', 'C
 
 type CheckoutStep = 'delivery' | 'account' | 'payment' | 'confirmation';
 
-// The client hasn't provided the real PayNow QR code yet — drop the actual
-// image at cust-FE/public/paynow-qr.png (no code changes needed) and this
-// swaps in automatically. Until then it shows a clear placeholder instead
-// of a broken image.
+const QR_TIMER_SECONDS = 300;
+
+const formatTimer = (totalSeconds: number) => {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
+// Falls back to a clear placeholder if cust-FE/public/paynow-qr.jpg is ever
+// missing (e.g. a future re-upload under a different filename) instead of
+// showing a broken image.
 const PayNowQrCode: React.FC = () => {
   const [failed, setFailed] = useState(false);
   if (failed) {
@@ -34,7 +41,7 @@ const PayNowQrCode: React.FC = () => {
   }
   return (
     <img
-      src="/paynow-qr.png"
+      src="/paynow-qr.jpg"
       alt="PayNow QR code"
       className="w-40 h-40 object-contain border border-gray-200 rounded-lg"
       onError={() => setFailed(true)}
@@ -72,6 +79,12 @@ const CheckoutPage: React.FC = () => {
     remarks: '',
   });
   const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]>('PayNow');
+
+  // PayNow requires scanning the QR and acknowledging the transfer before
+  // the order is actually created (unlike Cash, which places the order
+  // immediately and just shows pay-at-office instructions afterward).
+  const [payNowGateOpen, setPayNowGateOpen] = useState(false);
+  const [qrSecondsLeft, setQrSecondsLeft] = useState(QR_TIMER_SECONDS);
 
   // Guests need an account created before an order can be tracked — collected
   // right before payment so nothing they've already typed gets lost.
@@ -121,6 +134,25 @@ const CheckoutPage: React.FC = () => {
       })
       .catch(() => undefined);
   }, [user]);
+
+  useEffect(() => {
+    if (!payNowGateOpen) return;
+    const timer = setInterval(() => {
+      setQrSecondsLeft((s) => Math.max(s - 1, 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [payNowGateOpen]);
+
+  const openPayNowGate = () => {
+    setError(null);
+    setQrSecondsLeft(QR_TIMER_SECONDS);
+    setPayNowGateOpen(true);
+  };
+
+  const closePayNowGate = () => {
+    setPayNowGateOpen(false);
+    setQrSecondsLeft(QR_TIMER_SECONDS);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -522,7 +554,7 @@ const CheckoutPage: React.FC = () => {
             </form>
           )}
 
-          {step === 'payment' && (
+          {step === 'payment' && !payNowGateOpen && (
             <div className="space-y-8">
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-6">Payment Method</h2>
@@ -543,7 +575,7 @@ const CheckoutPage: React.FC = () => {
                   ))}
                 </div>
                 <p className="text-sm text-gray-500 mt-4">
-                  {paymentMethod === 'PayNow' && "You'll receive a PayNow QR code to complete payment after placing your order."}
+                  {paymentMethod === 'PayNow' && "You'll scan a QR code and confirm payment before your order is placed."}
                   {paymentMethod === 'NETS' && "You'll receive NETS payment instructions after placing your order."}
                   {paymentMethod === 'Card' && 'Card payment instructions will be sent after placing your order.'}
                   {paymentMethod === 'Cash' && 'Pay in cash at our office within 7 days of placing your order.'}
@@ -562,12 +594,75 @@ const CheckoutPage: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={placeOrder}
+                  onClick={paymentMethod === 'PayNow' ? openPayNowGate : placeOrder}
                   disabled={submitting}
                   className="flex items-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-medium disabled:opacity-50"
                 >
                   <Lock className="w-4 h-4 mr-2" />
-                  {submitting ? processingLabel || 'Placing Order...' : 'Place Order'}
+                  {paymentMethod === 'PayNow'
+                    ? 'Continue to Payment'
+                    : submitting
+                      ? processingLabel || 'Placing Order...'
+                      : 'Place Order'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 'payment' && payNowGateOpen && (
+            <div className="space-y-8">
+              <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Scan to Pay via PayNow</h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Scan the QR code with your banking app to pay <strong>${total.toFixed(2)}</strong>.
+                  Once you&apos;ve made the transfer, confirm below to place your order.
+                </p>
+
+                <div className="flex justify-center mb-4">
+                  <PayNowQrCode />
+                </div>
+
+                {qrSecondsLeft > 0 ? (
+                  <p className="text-sm text-gray-500 mb-6">
+                    Time remaining: <strong className="text-gray-900">{formatTimer(qrSecondsLeft)}</strong>
+                  </p>
+                ) : (
+                  <p className="text-sm text-red-600 mb-6">
+                    This QR code session has expired. Restart the timer to try again.
+                  </p>
+                )}
+
+                {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+
+                {qrSecondsLeft > 0 ? (
+                  <button
+                    type="button"
+                    onClick={placeOrder}
+                    disabled={submitting}
+                    className="w-full flex items-center justify-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-semibold disabled:opacity-50"
+                  >
+                    {submitting ? processingLabel || 'Confirming...' : "I've Made the Payment"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openPayNowGate}
+                    className="w-full flex items-center justify-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-semibold"
+                  >
+                    Restart Timer
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={closePayNowGate}
+                  disabled={submitting}
+                  className="flex items-center px-6 py-3 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Change Payment Method
                 </button>
               </div>
             </div>
@@ -599,15 +694,12 @@ const CheckoutPage: React.FC = () => {
                 ) : paymentMethod === 'PayNow' ? (
                   <>
                     <p className="text-sm text-gray-600">
-                      Payment status: <strong className="text-terracotta-600">Pending — scan to pay via PayNow</strong>
+                      Payment status: <strong className="text-terracotta-600">Pending — verifying your PayNow payment</strong>
                     </p>
-                    <div className="flex flex-col items-center mt-3">
-                      <PayNowQrCode />
-                      <p className="text-sm text-gray-600 mt-2 text-center">
-                        Scan the QR code with your banking app to pay ${total.toFixed(2)}. We&apos;ll
-                        confirm your order once payment is received.
-                      </p>
-                    </div>
+                    <p className="text-sm text-gray-600 mt-2">
+                      Thanks for confirming your transfer of ${total.toFixed(2)}. We&apos;ll confirm your
+                      order once payment is received on our end.
+                    </p>
                   </>
                 ) : (
                   <p className="text-sm text-gray-600">Payment status: <strong className="text-green-600">Paid (simulated)</strong></p>

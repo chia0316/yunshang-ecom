@@ -11,16 +11,14 @@ const { authenticate } = require('../utils/authenticator');
 // no account required.
 router.post('/', async (req, res) => {
   const isValid = await validate.run(req, res, [
-    body('type')
-      .isIn(['appointment', 'appointment_no_sales', 'enquiry', 'other'])
-      .withMessage('Invalid enquiry type'),
+    body('type').isIn(['appointment', 'enquiry', 'other']).withMessage('Invalid enquiry type'),
     body('name').exists().notEmpty().withMessage('Name cannot be empty'),
     body('email').exists().isEmail().withMessage('A valid email is required')
   ]);
   if (!isValid) {
     return;
   }
-  const { type, name, email, mobile, preferred_date, preferred_time, message } = req.body;
+  const { type, name, email, mobile, preferred_date, preferred_time, message, requires_sales_person } = req.body;
   try {
     const enquiry = await Enquiry.create({
       type,
@@ -29,7 +27,8 @@ router.post('/', async (req, res) => {
       mobile: mobile || null,
       preferred_date: preferred_date || null,
       preferred_time: preferred_time || null,
-      message: message || null
+      message: message || null,
+      requires_sales_person: Boolean(requires_sales_person)
     });
     mailer.sendEnquiryNotificationMail(enquiry);
     mailer.sendEnquiryConfirmationMail(enquiry);

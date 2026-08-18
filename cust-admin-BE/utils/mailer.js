@@ -92,8 +92,7 @@ const sendOrderStatusUpdateMail = (user, order) => {
 };
 
 const ENQUIRY_TYPE_LABELS = {
-  appointment: 'Appointment Booking (with Sales Person)',
-  appointment_no_sales: 'Appointment Booking (without Sales Person)',
+  appointment: 'Appointment Booking',
   enquiry: 'Enquiry',
   other: 'Other'
 };
@@ -113,6 +112,7 @@ const sendEnquiryNotificationMail = (enquiry) => {
         ${enquiry.mobile ? `<li><b>Mobile:</b> ${enquiry.mobile}</li>` : ''}
         ${enquiry.preferred_date ? `<li><b>Preferred date:</b> ${enquiry.preferred_date}</li>` : ''}
         ${enquiry.preferred_time ? `<li><b>Preferred time:</b> ${enquiry.preferred_time}</li>` : ''}
+        ${enquiry.type === 'appointment' ? `<li><b>Sales person requested:</b> ${enquiry.requires_sales_person ? 'Yes (subject to availability)' : 'No'}</li>` : ''}
       </ul>
       ${enquiry.message ? `<p><b>Message:</b> ${enquiry.message}</p>` : ''}
     `

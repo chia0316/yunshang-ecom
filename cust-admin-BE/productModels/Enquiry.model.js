@@ -35,6 +35,11 @@ Enquiry.init(
       type: DataTypes.STRING(100),
       allowNull: true
     },
+    requires_sales_person: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
     message: {
       type: DataTypes.TEXT,
       allowNull: true

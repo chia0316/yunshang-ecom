@@ -14,10 +14,8 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
 
-// TODO: dummy placeholder values — swap for the client's real hours/number
-// once provided.
-const OPERATING_HOURS = "Mon - Sun: 9:00 AM - 6:00 PM";
-const SUPPORT_NUMBER = "+65 8888 8888";
+const OPERATING_HOURS = "Open 24 Hours";
+const SUPPORT_NUMBER = "+65 8983 5830";
 
 const Header: React.FC = () => {
   const { state } = useCart();

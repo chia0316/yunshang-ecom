@@ -113,7 +113,7 @@ export interface Coupon {
   createdAt: string;
 }
 
-export type EnquiryType = "appointment" | "appointment_no_sales" | "enquiry" | "other";
+export type EnquiryType = "appointment" | "enquiry" | "other";
 export type EnquiryStatus = "new" | "contacted" | "closed";
 
 export interface Enquiry {
@@ -124,6 +124,7 @@ export interface Enquiry {
   mobile: string | null;
   preferred_date: string | null;
   preferred_time: string | null;
+  requires_sales_person: boolean;
   message: string | null;
   status: EnquiryStatus;
   createdAt: string;

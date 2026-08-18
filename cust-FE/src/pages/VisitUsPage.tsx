@@ -3,11 +3,10 @@ import { Link } from 'react-router-dom';
 import { Check, MapPin, Phone, Mail as MailIcon } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 
-type EnquiryType = 'appointment' | 'appointment_no_sales' | 'enquiry' | 'other';
+type EnquiryType = 'appointment' | 'enquiry' | 'other';
 
 const TYPE_OPTIONS: { value: EnquiryType; label: string }[] = [
-  { value: 'appointment', label: 'Book a Showroom Appointment with Sales Person' },
-  { value: 'appointment_no_sales', label: 'Book a Showroom Appointment without Sales Person' },
+  { value: 'appointment', label: 'Book a Showroom Appointment' },
   { value: 'enquiry', label: 'General Enquiry' },
   { value: 'other', label: 'Other' },
 ];
@@ -20,6 +19,7 @@ const VisitUsPage: React.FC = () => {
     mobile: '',
     preferred_date: '',
     preferred_time: '',
+    requires_sales_person: false,
     message: '',
   });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -140,7 +140,7 @@ const VisitUsPage: React.FC = () => {
                 />
               </div>
 
-              {(formData.type === 'appointment' || formData.type === 'appointment_no_sales') && (
+              {formData.type === 'appointment' && (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Date</label>
@@ -163,6 +163,19 @@ const VisitUsPage: React.FC = () => {
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={formData.requires_sales_person}
+                        onChange={(e) =>
+                          setFormData({ ...formData, requires_sales_person: e.target.checked })
+                        }
+                        className="rounded border-gray-300 text-terracotta-600 focus:ring-terracotta-500"
+                      />
+                      Require a sales person (subject to availability)
+                    </label>
                   </div>
                 </>
               )}
@@ -224,7 +237,7 @@ const VisitUsPage: React.FC = () => {
           </div>
           <div className="flex items-start space-x-3">
             <MailIcon className="w-5 h-5 text-terracotta-600 flex-shrink-0 mt-0.5" />
-            <span className="text-gray-700 text-sm">hello@casayun.sg</span>
+            <span className="text-gray-700 text-sm">admin@yunshang.com.sg</span>
           </div>
         </div>
       </div>

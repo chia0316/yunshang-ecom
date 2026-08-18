@@ -31,8 +31,7 @@ const STATUS_VARIANT: Record<EnquiryStatus, "info" | "warning" | "success"> = {
 };
 
 const TYPE_LABELS: Record<EnquiryType, string> = {
-  appointment: "Appointment (with Sales)",
-  appointment_no_sales: "Appointment (no Sales)",
+  appointment: "Appointment",
   enquiry: "Enquiry",
   other: "Other",
 };
@@ -138,6 +137,13 @@ export default function EnquiriesPage() {
                       ? new Date(enquiry.preferred_date).toLocaleDateString()
                       : "—"}
                     {enquiry.preferred_time && ` (${enquiry.preferred_time})`}
+                    {enquiry.type === "appointment" && enquiry.requires_sales_person && (
+                      <div>
+                        <Badge variant="info" className="mt-1 w-fit">
+                          Sales person requested
+                        </Badge>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="max-w-64 truncate" title={enquiry.message || ""}>
                     {enquiry.message || "—"}
