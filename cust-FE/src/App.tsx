@@ -12,10 +12,13 @@ import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import AccountOrdersPage from './pages/AccountOrdersPage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import WishlistPage from './pages/WishlistPage';
 import VisitUsPage from './pages/VisitUsPage';
+import TermsPage from './pages/TermsPage';
 
 function App() {
   return (
@@ -35,10 +38,13 @@ function App() {
                   <Route path="/checkout" element={<CheckoutPage />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/signup" element={<SignupPage />} />
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/account/orders" element={<AccountOrdersPage />} />
                   <Route path="/account/settings" element={<AccountSettingsPage />} />
                   <Route path="/wishlist" element={<WishlistPage />} />
                   <Route path="/visit-us" element={<VisitUsPage />} />
+                  <Route path="/terms" element={<TermsPage />} />
                 </Routes>
               </main>
               <Footer />

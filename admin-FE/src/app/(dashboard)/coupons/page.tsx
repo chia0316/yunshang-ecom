@@ -45,6 +45,7 @@ const emptyForm = {
   min_order_amount: "",
   max_uses: "",
   expires_at: "",
+  visibility: "public" as "public" | "exclusive",
 };
 
 export default function CouponsPage() {
@@ -84,6 +85,7 @@ export default function CouponsPage() {
       min_order_amount: coupon.min_order_amount || "",
       max_uses: coupon.max_uses !== null ? String(coupon.max_uses) : "",
       expires_at: coupon.expires_at ? coupon.expires_at.slice(0, 10) : "",
+      visibility: coupon.visibility,
     });
     setDialogOpen(true);
   };
@@ -98,6 +100,7 @@ export default function CouponsPage() {
         min_order_amount: form.min_order_amount ? Number(form.min_order_amount) : null,
         max_uses: form.max_uses ? Number(form.max_uses) : null,
         expires_at: form.expires_at || null,
+        visibility: form.visibility,
       };
       if (editing) {
         const { code: _code, ...updates } = payload;
@@ -170,6 +173,7 @@ export default function CouponsPage() {
               <TableHead>Min Order</TableHead>
               <TableHead>Usage</TableHead>
               <TableHead>Expires</TableHead>
+              <TableHead>Visibility</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-10" />
             </TableRow>
@@ -177,13 +181,13 @@ export default function CouponsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : coupons.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   No coupons yet.
                 </TableCell>
               </TableRow>
@@ -205,6 +209,11 @@ export default function CouponsPage() {
                   </TableCell>
                   <TableCell>
                     {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString() : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={coupon.visibility === "public" ? "outline" : "info"}>
+                      {coupon.visibility === "public" ? "Public" : "Exclusive"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant={coupon.is_active ? "success" : "secondary"}>
@@ -282,6 +291,11 @@ export default function CouponsPage() {
                   value={form.discount_value}
                   onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Use 0 for a tracking-only code (e.g. per influencer/agent) —
+                  it applies no discount but still records which code was
+                  used on each order.
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -307,6 +321,25 @@ export default function CouponsPage() {
                   onChange={(e) => setForm({ ...form, max_uses: e.target.value })}
                 />
               </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="coupon-visibility">Visibility</Label>
+              <Select
+                value={form.visibility}
+                onValueChange={(v) => setForm({ ...form, visibility: v as "public" | "exclusive" })}
+              >
+                <SelectTrigger id="coupon-visibility" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">Public</SelectItem>
+                  <SelectItem value="exclusive">Exclusive</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Exclusive codes still work at checkout — just share them
+                privately (e.g. by email) instead of listing them publicly.
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="coupon-expires">Expires On</Label>

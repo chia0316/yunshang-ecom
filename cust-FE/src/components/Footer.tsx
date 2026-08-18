@@ -38,6 +38,9 @@ const Footer: React.FC = () => {
               <a href="#" className="block text-gray-300 hover:text-terracotta-400 transition-colors text-sm">
                 Shipping Info
               </a>
+              <Link to="/terms" className="block text-gray-300 hover:text-terracotta-400 transition-colors text-sm">
+                Terms &amp; Conditions
+              </Link>
             </div>
           </div>
 

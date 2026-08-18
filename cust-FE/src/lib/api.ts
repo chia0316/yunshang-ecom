@@ -42,6 +42,17 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   const data = contentType?.includes('application/json') ? await res.json() : undefined;
 
   if (!res.ok) {
+    // A 401 on an authenticated request means the token is missing/expired/
+    // invalid (see cust-admin-BE/utils/authenticator.js — every 401 in the
+    // backend comes from there) — bounce to login instead of leaving the
+    // page stuck showing a raw "Error parsing auth token" message.
+    if (res.status === 401 && auth) {
+      localStorage.removeItem('yunshang_token');
+      localStorage.removeItem('yunshang_user');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
     throw new ApiError(data?.error || 'Request failed', res.status, data?.fields);
   }
 

@@ -44,6 +44,14 @@ Coupon.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true
+    },
+    // 'public' codes are listed on /api/coupons/available for anyone to
+    // browse; 'exclusive' codes are omitted from that list — still valid if
+    // applied directly (e.g. shared privately by email) but not discoverable.
+    visibility: {
+      type: DataTypes.ENUM('public', 'exclusive'),
+      allowNull: false,
+      defaultValue: 'public'
     }
   },
   {

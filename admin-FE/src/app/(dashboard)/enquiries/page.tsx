@@ -31,7 +31,8 @@ const STATUS_VARIANT: Record<EnquiryStatus, "info" | "warning" | "success"> = {
 };
 
 const TYPE_LABELS: Record<EnquiryType, string> = {
-  appointment: "Appointment Booking",
+  appointment: "Appointment (with Sales)",
+  appointment_no_sales: "Appointment (no Sales)",
   enquiry: "Enquiry",
   other: "Other",
 };

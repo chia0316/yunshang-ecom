@@ -49,10 +49,25 @@ export async function apiFetch<T>(
     : undefined;
 
   if (!res.ok) {
+    // A 401 on an authenticated request means the token is missing/expired/
+    // invalid (every 401 in the backend comes from utils/authenticator.js) —
+    // bounce to login instead of leaving the page stuck on a raw error.
+    if (res.status === 401 && auth) {
+      redirectToLogin();
+    }
     throw new ApiError(data?.error || "Request failed", res.status);
   }
 
   return data as T;
+}
+
+function redirectToLogin() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("yunshang_admin_token");
+  localStorage.removeItem("yunshang_admin_user");
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
+  }
 }
 
 export function getProductImageUrl(filename: string): string {
@@ -72,6 +87,9 @@ export async function apiDownload(path: string, filename: string): Promise<void>
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      redirectToLogin();
+    }
     throw new ApiError("Download failed", res.status);
   }
   const blob = await res.blob();

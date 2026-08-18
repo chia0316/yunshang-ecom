@@ -27,11 +27,15 @@ const sendWelcomeMail = (email, firstName) => {
   });
 };
 
-const sendTempPasswordMail = (email, tempPassword) => {
+// resetLink already has userId/token baked in as query params (see
+// controllers/user.js forgetpassword) — the reset string itself is never a
+// usable password, so the email must link to the reset form, not claim to
+// be a "temporary password" you can log in with directly.
+const sendPasswordResetMail = (email, resetLink) => {
   send({
     to: email,
     subject: 'Casa Yun password reset',
-    html: `<p>We heard you lost your password.</p><p>We've generated a temporary password for you: <b>${tempPassword}</b></p><p>Please log in and change it as soon as possible.</p>`
+    html: `<p>We heard you lost your password.</p><p>Click the link below to choose a new one. This link expires in 1 hour.</p><p><a href="${resetLink}">${resetLink}</a></p><p>If you didn't request this, you can safely ignore this email.</p>`
   });
 };
 
@@ -50,11 +54,11 @@ const sendOrderConfirmationMail = (user, order, orderDetailsList, { paymentMetho
   // unvalidated client input and goes straight into the email body below.
   const safeMethod = PAYMENT_METHODS.includes(paymentMethod) ? paymentMethod : undefined;
 
-  let cashHtml = '';
+  let paymentHtml = '';
   if (safeMethod === 'Cash' && company) {
     const dueDate = new Date(order.created_at);
     dueDate.setDate(dueDate.getDate() + CASH_PAYMENT_DAYS);
-    cashHtml = `
+    paymentHtml = `
       <p><b>Cash payment instructions:</b> Please pay in cash at our office within
       ${CASH_PAYMENT_DAYS} days (by ${dueDate.toDateString()}) to confirm your order.</p>
       <ul>
@@ -62,12 +66,20 @@ const sendOrderConfirmationMail = (user, order, orderDetailsList, { paymentMetho
         ${company.phone ? `<li>Phone: ${company.phone}</li>` : ''}
       </ul>
     `;
+  } else if (safeMethod === 'PayNow') {
+    // No gateway yet — customer scans the QR shown on the confirmation page
+    // and an admin manually marks the payment received.
+    paymentHtml = `
+      <p><b>PayNow instructions:</b> Please complete payment using the PayNow QR
+      code shown on your order confirmation page. We'll confirm your order once
+      payment is received.</p>
+    `;
   }
 
   send({
     to: user.email,
     subject: `Casa Yun order confirmation #${order.id}`,
-    html: `<p>Hi ${user.firstName},</p><p>Thank you for your order #${order.id}. Total: $${Number(order.total_price).toFixed(2)}.</p><ul>${itemsHtml}</ul>${cashHtml}`
+    html: `<p>Hi ${user.firstName},</p><p>Thank you for your order #${order.id}. Total: $${Number(order.total_price).toFixed(2)}.</p><ul>${itemsHtml}</ul>${paymentHtml}`
   });
 };
 
@@ -80,7 +92,8 @@ const sendOrderStatusUpdateMail = (user, order) => {
 };
 
 const ENQUIRY_TYPE_LABELS = {
-  appointment: 'Appointment Booking',
+  appointment: 'Appointment Booking (with Sales Person)',
+  appointment_no_sales: 'Appointment Booking (without Sales Person)',
   enquiry: 'Enquiry',
   other: 'Other'
 };
@@ -118,7 +131,7 @@ const sendEnquiryConfirmationMail = (enquiry) => {
 
 module.exports = {
   sendWelcomeMail,
-  sendTempPasswordMail,
+  sendPasswordResetMail,
   sendOrderConfirmationMail,
   sendOrderStatusUpdateMail,
   sendEnquiryNotificationMail,

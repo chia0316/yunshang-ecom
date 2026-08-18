@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Lock, ArrowLeft, Check, ShieldCheck, Truck } from 'lucide-react';
+import { Lock, ArrowLeft, Check, ShieldCheck, Truck, QrCode } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppliedCoupon } from '../hooks/useAppliedCoupon';
@@ -11,7 +11,36 @@ import type { Order } from '../lib/types';
 
 const PAYMENT_METHODS = ['PayNow', 'NETS', 'Card', 'Cash'] as const;
 
+// No payment gateway is live yet. PayNow and Cash are confirmed manually by
+// an admin after the fact (QR scan / pay-at-office respectively) instead of
+// the auto-confirm simulation NETS/Card still use below.
+const MANUAL_PAYMENT_METHODS: (typeof PAYMENT_METHODS)[number][] = ['PayNow', 'Cash'];
+
 type CheckoutStep = 'delivery' | 'account' | 'payment' | 'confirmation';
+
+// The client hasn't provided the real PayNow QR code yet — drop the actual
+// image at cust-FE/public/paynow-qr.png (no code changes needed) and this
+// swaps in automatically. Until then it shows a clear placeholder instead
+// of a broken image.
+const PayNowQrCode: React.FC = () => {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="w-40 h-40 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400">
+        <QrCode className="w-10 h-10 mb-1" />
+        <span className="text-xs text-center px-2">QR code coming soon</span>
+      </div>
+    );
+  }
+  return (
+    <img
+      src="/paynow-qr.png"
+      alt="PayNow QR code"
+      className="w-40 h-40 object-contain border border-gray-200 rounded-lg"
+      onError={() => setFailed(true)}
+    />
+  );
+};
 
 interface Profile {
   firstName: string;
@@ -206,10 +235,10 @@ const CheckoutPage: React.FC = () => {
         }),
       });
 
-      if (paymentMethod === 'Cash') {
-        // Cash is paid in person at the office, not confirmed automatically
-        // — the order/payment stay pending until an admin manually confirms
-        // receipt (see PATCH /api/payments/:pid on the backend).
+      if (MANUAL_PAYMENT_METHODS.includes(paymentMethod)) {
+        // Cash (pay at office) and PayNow (scan QR, pay manually) both stay
+        // pending until an admin manually confirms receipt — see
+        // PATCH /api/payments/:pid on the backend.
         setPlacedOrder(orderRes.order);
       } else {
         // No payment gateway is integrated yet — this simulates the
@@ -566,6 +595,19 @@ const CheckoutPage: React.FC = () => {
                       {company.address && <> Our office: <strong>{company.address}</strong>.</>}
                       {company.phone && <> Call us at <strong>{company.phone}</strong> to arrange a time.</>}
                     </p>
+                  </>
+                ) : paymentMethod === 'PayNow' ? (
+                  <>
+                    <p className="text-sm text-gray-600">
+                      Payment status: <strong className="text-terracotta-600">Pending — scan to pay via PayNow</strong>
+                    </p>
+                    <div className="flex flex-col items-center mt-3">
+                      <PayNowQrCode />
+                      <p className="text-sm text-gray-600 mt-2 text-center">
+                        Scan the QR code with your banking app to pay ${total.toFixed(2)}. We&apos;ll
+                        confirm your order once payment is received.
+                      </p>
+                    </div>
                   </>
                 ) : (
                   <p className="text-sm text-gray-600">Payment status: <strong className="text-green-600">Paid (simulated)</strong></p>

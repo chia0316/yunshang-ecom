@@ -330,7 +330,7 @@ export default function OrdersPage() {
                             Overdue
                           </Badge>
                         )}
-                        {order.payments[0].method === "Cash" &&
+                        {(order.payments[0].method === "Cash" || order.payments[0].method === "PayNow") &&
                           order.payments[0].status === "pending" && (
                             <Button
                               variant="outline"

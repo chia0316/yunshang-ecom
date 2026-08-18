@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/select";
 import { apiFetch, getProductImageUrl, getProductVideoUrl } from "@/lib/api";
 import type { Category, Product } from "@/lib/types";
+import { ImageGalleryDialog } from "./image-gallery-dialog";
+import { VideoGalleryDialog } from "./video-gallery-dialog";
 
 interface ProductFormDialogProps {
   open: boolean;
@@ -61,10 +63,11 @@ export function ProductFormDialog({
   const [form, setForm] = useState(emptyForm);
   const [images, setImages] = useState<string[]>([]);
   const [video, setVideo] = useState<string | null>(null);
-  const [manualFilename, setManualFilename] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const [videoPickerOpen, setVideoPickerOpen] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -91,7 +94,6 @@ export function ProductFormDialog({
       setImages([]);
       setVideo(null);
     }
-    setManualFilename("");
   }, [product, open]);
 
   const addImages = (filenames: string[]) => {
@@ -138,20 +140,6 @@ export function ProductFormDialog({
       toast.error(err instanceof Error ? err.message : "Video upload failed");
     } finally {
       setUploadingVideo(false);
-    }
-  };
-
-  const handleAddManualFilename = () => {
-    const filename = manualFilename.trim();
-    if (!filename) return;
-    addImages([filename]);
-    setManualFilename("");
-  };
-
-  const handleManualFilenameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleAddManualFilename();
     }
   };
 
@@ -367,30 +355,28 @@ export function ProductFormDialog({
                 ))}
               </div>
             )}
-            <Input
-              type="file"
-              multiple
-              accept="image/*"
-              disabled={uploading}
-              onChange={(e) => {
-                handleUpload(e.target.files);
-                e.target.value = "";
-              }}
-            />
             <div className="flex gap-2">
               <Input
-                placeholder="Or add an existing filename already on the server"
-                value={manualFilename}
-                onChange={(e) => setManualFilename(e.target.value)}
-                onKeyDown={handleManualFilenameKeyDown}
+                type="file"
+                multiple
+                accept="image/*"
+                disabled={uploading}
+                onChange={(e) => {
+                  handleUpload(e.target.files);
+                  e.target.value = "";
+                }}
               />
-              <Button type="button" variant="outline" onClick={handleAddManualFilename}>
-                Add
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setImagePickerOpen(true)}
+              >
+                Choose from library
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Upload new photos, or add a filename that already exists in the
-              image folder (e.g. from a previous mass upload).
+              Upload new photos, or choose ones already on the server (e.g.
+              from a previous mass upload).
             </p>
           </div>
           <div className="col-span-2 grid gap-2">
@@ -414,18 +400,28 @@ export function ProductFormDialog({
                 </button>
               </div>
             )}
-            <Input
-              type="file"
-              accept="video/mp4,video/webm,video/quicktime"
-              disabled={uploadingVideo}
-              onChange={(e) => {
-                handleVideoUpload(e.target.files);
-                e.target.value = "";
-              }}
-            />
+            <div className="flex gap-2">
+              <Input
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime"
+                disabled={uploadingVideo}
+                onChange={(e) => {
+                  handleVideoUpload(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setVideoPickerOpen(true)}
+              >
+                Choose from library
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">
-              One video, max 10MB (MP4, WebM, or MOV). Shown as the last
-              gallery thumbnail on the product page.
+              One video, max 10MB (MP4, WebM, or MOV), or choose one already
+              on the server. Shown as the last gallery thumbnail on the
+              product page.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -459,6 +455,17 @@ export function ProductFormDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <ImageGalleryDialog
+        open={imagePickerOpen}
+        onOpenChange={setImagePickerOpen}
+        onSelect={(filename) => addImages([filename])}
+      />
+      <VideoGalleryDialog
+        open={videoPickerOpen}
+        onOpenChange={setVideoPickerOpen}
+        onSelect={setVideo}
+      />
     </Dialog>
   );
 }

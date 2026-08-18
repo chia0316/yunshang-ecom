@@ -41,6 +41,7 @@ services:
       COMPANY_UEN: ${COMPANY_UEN}
       GST_ENABLED: ${GST_ENABLED}
       GST_RATE: ${GST_RATE}
+      STOREFRONT_URL: http://${DROPLET_IP}
     ports:
       - "8090:8090"
     volumes:

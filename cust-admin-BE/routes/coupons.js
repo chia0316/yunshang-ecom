@@ -18,6 +18,7 @@ router.get('/available', async (req, res) => {
     const coupons = await Coupon.findAll({
       where: {
         is_active: true,
+        visibility: 'public',
         [Op.or]: [{ expires_at: null }, { expires_at: { [Op.gt]: now } }]
       },
       order: [['created_at', 'DESC']]
@@ -57,12 +58,19 @@ router.post('/', authenticate, async (req, res) => {
   const isValid = await validate.run(req, res, [
     body('code').exists().notEmpty().withMessage('Code cannot be empty'),
     body('discount_type').isIn(['percent', 'fixed']).withMessage('discount_type must be percent or fixed'),
-    body('discount_value').isFloat({ gt: 0 }).withMessage('discount_value must be greater than 0')
+    // 0 is intentionally allowed — a $0/0% coupon still records a coupon_code
+    // on the order, so codes can be minted purely to attribute sales to an
+    // influencer or sales agent without giving any actual discount.
+    body('discount_value').isFloat({ gte: 0 }).withMessage('discount_value must be zero or greater'),
+    body('visibility')
+      .optional()
+      .isIn(['public', 'exclusive'])
+      .withMessage('visibility must be public or exclusive')
   ]);
   if (!isValid) {
     return;
   }
-  const { code, discount_type, discount_value, min_order_amount, max_uses, expires_at, is_active } = req.body;
+  const { code, discount_type, discount_value, min_order_amount, max_uses, expires_at, is_active, visibility } = req.body;
   try {
     const coupon = await Coupon.create({
       code: code.toUpperCase(),
@@ -71,7 +79,8 @@ router.post('/', authenticate, async (req, res) => {
       min_order_amount: min_order_amount || null,
       max_uses: max_uses || null,
       expires_at: expires_at || null,
-      is_active: is_active === undefined ? true : is_active
+      is_active: is_active === undefined ? true : is_active,
+      visibility: visibility || 'public'
     });
     return res.status(201).json(coupon);
   } catch (err) {
@@ -92,7 +101,8 @@ router.patch('/:id', authenticate, async (req, res) => {
     'min_order_amount',
     'max_uses',
     'expires_at',
-    'is_active'
+    'is_active',
+    'visibility'
   ];
   const updates = Object.fromEntries(
     Object.entries(req.body).filter(([key]) => allowedFields.includes(key))

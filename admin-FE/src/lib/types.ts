@@ -109,10 +109,11 @@ export interface Coupon {
   used_count: number;
   expires_at: string | null;
   is_active: boolean;
+  visibility: "public" | "exclusive";
   createdAt: string;
 }
 
-export type EnquiryType = "appointment" | "enquiry" | "other";
+export type EnquiryType = "appointment" | "appointment_no_sales" | "enquiry" | "other";
 export type EnquiryStatus = "new" | "contacted" | "closed";
 
 export interface Enquiry {

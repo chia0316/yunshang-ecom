@@ -11,7 +11,7 @@ Enquiry.init(
       allowNull: false
     },
     type: {
-      type: DataTypes.ENUM('appointment', 'enquiry', 'other'),
+      type: DataTypes.ENUM('appointment', 'appointment_no_sales', 'enquiry', 'other'),
       allowNull: false,
       defaultValue: 'enquiry'
     },

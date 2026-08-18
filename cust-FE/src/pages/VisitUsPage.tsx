@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { Check, MapPin, Phone, Mail as MailIcon } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 
-type EnquiryType = 'appointment' | 'enquiry' | 'other';
+type EnquiryType = 'appointment' | 'appointment_no_sales' | 'enquiry' | 'other';
 
 const TYPE_OPTIONS: { value: EnquiryType; label: string }[] = [
-  { value: 'appointment', label: 'Book a Showroom Appointment' },
+  { value: 'appointment', label: 'Book a Showroom Appointment with Sales Person' },
+  { value: 'appointment_no_sales', label: 'Book a Showroom Appointment without Sales Person' },
   { value: 'enquiry', label: 'General Enquiry' },
   { value: 'other', label: 'Other' },
 ];
@@ -21,6 +22,7 @@ const VisitUsPage: React.FC = () => {
     preferred_time: '',
     message: '',
   });
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -138,7 +140,7 @@ const VisitUsPage: React.FC = () => {
                 />
               </div>
 
-              {formData.type === 'appointment' && (
+              {(formData.type === 'appointment' || formData.type === 'appointment_no_sales') && (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Date</label>
@@ -177,11 +179,32 @@ const VisitUsPage: React.FC = () => {
               </div>
             </div>
 
+            <label className="flex items-start gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                required
+                className="mt-0.5 rounded border-gray-300 text-terracotta-600 focus:ring-terracotta-500"
+              />
+              <span>
+                I agree to the{' '}
+                <Link
+                  to="/terms"
+                  target="_blank"
+                  className="text-terracotta-600 hover:text-terracotta-700 font-medium"
+                >
+                  Terms &amp; Conditions
+                </Link>
+                . Submitting this form means you accept them.
+              </span>
+            </label>
+
             {error && <p className="text-sm text-red-600">{error}</p>}
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !agreedToTerms}
               className="w-full bg-stone-900 text-white py-3 px-6 rounded-lg hover:bg-stone-800 transition-colors font-semibold disabled:opacity-50"
             >
               {submitting ? 'Submitting...' : 'Submit Request'}

@@ -11,7 +11,9 @@ const { authenticate } = require('../utils/authenticator');
 // no account required.
 router.post('/', async (req, res) => {
   const isValid = await validate.run(req, res, [
-    body('type').isIn(['appointment', 'enquiry', 'other']).withMessage('Invalid enquiry type'),
+    body('type')
+      .isIn(['appointment', 'appointment_no_sales', 'enquiry', 'other'])
+      .withMessage('Invalid enquiry type'),
     body('name').exists().notEmpty().withMessage('Name cannot be empty'),
     body('email').exists().isEmail().withMessage('A valid email is required')
   ]);

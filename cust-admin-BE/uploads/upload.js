@@ -57,5 +57,6 @@ const videoUpload = multer({
 module.exports = {
   multiImageUpload,
   videoUpload,
-  imageUploadDir: uploadDir
+  imageUploadDir: uploadDir,
+  videoUploadDir: videoDir
 };

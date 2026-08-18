@@ -204,7 +204,9 @@ const forgetpassword = async (req, res) => {
       expiry_at: expiryAt
     });
 
-    mailer.sendTempPasswordMail(userExists.email, resetString);
+    const storefrontUrl = process.env.STOREFRONT_URL || 'http://localhost:5173';
+    const resetLink = `${storefrontUrl}/reset-password?userId=${userExists.id}&token=${resetString}`;
+    mailer.sendPasswordResetMail(userExists.email, resetLink);
 
     return res.status(200).send({
       message: 'Password reset instructions sent to your email'

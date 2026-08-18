@@ -11,7 +11,7 @@ const { Op } = require('sequelize');
 const Product = require('../productModels/Product.model');
 const Category = require('../productModels/Category.model');
 const { authenticate, attachAdminFlag } = require('../utils/authenticator');
-const { multiImageUpload, videoUpload, imageUploadDir } = require('../uploads/upload');
+const { multiImageUpload, videoUpload, imageUploadDir, videoUploadDir } = require('../uploads/upload');
 
 // Bulk-upload accepts the Excel/CSV template plus an optional images ZIP —
 // the ZIP can be sizeable (dozens of product photos), so this gets a higher
@@ -19,6 +19,7 @@ const { multiImageUpload, videoUpload, imageUploadDir } = require('../uploads/up
 const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
+const ALLOWED_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov'];
 const MAX_ZIP_ENTRY_BYTES = 15 * 1024 * 1024;
 
 const EXPECTED_COLUMNS = {
@@ -386,6 +387,23 @@ router.get('/images', authenticate, async (req, res) => {
     const filenames = fs
       .readdirSync(imageUploadDir)
       .filter((filename) => ALLOWED_IMAGE_EXTENSIONS.includes(path.extname(filename).toLowerCase()))
+      .sort();
+    return res.json({ filenames });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Lists everything currently sitting in public/videos, same purpose as
+// /images above but for the single product-video slot.
+router.get('/videos', authenticate, async (req, res) => {
+  if (!req.isAdmin) {
+    return res.status(403).json({ error: 'Unauthorized request' });
+  }
+  try {
+    const filenames = fs
+      .readdirSync(videoUploadDir)
+      .filter((filename) => ALLOWED_VIDEO_EXTENSIONS.includes(path.extname(filename).toLowerCase()))
       .sort();
     return res.json({ filenames });
   } catch (err) {
