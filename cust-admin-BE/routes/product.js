@@ -122,7 +122,10 @@ const parseWorksheet = (worksheet) => {
     if (!sku) continue;
 
     rows.push({
-      rowNumber,
+      // Relative to the header row, not the raw sheet row — so the first
+      // actual data row reports as "Row 1" (what admins expect), not "Row 2"
+      // (which only made sense counting the header itself as row 1).
+      rowNumber: rowNumber - headerRowNumber,
       product_handle: get('product_handle'),
       sku: String(sku).trim(),
       name: get('name'),
@@ -161,6 +164,14 @@ const extractImagesZip = async (buffer) => {
     if (entry.isDirectory) continue;
     const filename = path.basename(entry.entryName);
     if (!filename) continue;
+
+    // macOS's Finder "Compress" adds a __MACOSX/ folder full of ._-prefixed
+    // AppleDouble metadata sidecar files (one per real file, same name and
+    // extension) plus .DS_Store — none of these are real images, but they'd
+    // otherwise pass the extension check below and pollute the gallery.
+    if (entry.entryName.startsWith('__MACOSX/') || filename.startsWith('._') || filename === '.DS_Store') {
+      continue;
+    }
 
     const ext = path.extname(filename).toLowerCase();
     if (!ALLOWED_IMAGE_EXTENSIONS.includes(ext)) {
@@ -506,6 +517,7 @@ router.get('/images', authenticate, async (req, res) => {
   try {
     const filenames = fs
       .readdirSync(imageUploadDir)
+      .filter((filename) => !filename.startsWith('.'))
       .filter((filename) => ALLOWED_IMAGE_EXTENSIONS.includes(path.extname(filename).toLowerCase()))
       .sort();
     return res.json({ filenames });
@@ -523,6 +535,7 @@ router.get('/videos', authenticate, async (req, res) => {
   try {
     const filenames = fs
       .readdirSync(videoUploadDir)
+      .filter((filename) => !filename.startsWith('.'))
       .filter((filename) => ALLOWED_VIDEO_EXTENSIONS.includes(path.extname(filename).toLowerCase()))
       .sort();
     return res.json({ filenames });
