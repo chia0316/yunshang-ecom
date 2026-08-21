@@ -197,7 +197,7 @@ export default function OrdersPage() {
           remarks: deliveryForm.remarks || null,
         }),
       });
-      toast.success(`Delivery info updated for order #${deliveryDialogOrder.id}`);
+      toast.success(`Delivery info updated for order ${deliveryDialogOrder.order_number}`);
       setDeliveryDialogOrder(null);
       loadOrders();
     } catch (err) {

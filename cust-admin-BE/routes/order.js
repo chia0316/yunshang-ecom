@@ -380,7 +380,8 @@ router.post('/', authenticate, async (req, res) => {
     const userData = await User.findByPk(req.userId);
     mailer.sendOrderConfirmationMail(userData, newOrder, orderDetails_list, {
       paymentMethod,
-      company: getCompanySettings()
+      company: getCompanySettings(),
+      delivery: { firstName, lastName, address: deliveryAddress, postal: deliveryPostal, contact }
     });
 
     return res.status(201).json({ order: newOrder });
@@ -403,7 +404,7 @@ router.patch('/:oid', authenticate, async (req, res) => {
     await order.update({ status });
 
     const user = await User.findByPk(order.user_id);
-    mailer.sendOrderStatusUpdateMail(user, order);
+    mailer.sendOrderStatusUpdateMail(user, order, getCompanySettings());
 
     return res.json({ message: 'Order updated successfully!', success: true });
   } catch (err) {
@@ -428,6 +429,18 @@ router.patch('/:oid/delivery', authenticate, async (req, res) => {
     if (updated[0] === 0) {
       return res.status(404).json({ message: 'Order delivery info not found', success: false });
     }
+
+    // Only notify when a delivery date is actually being set — editing just
+    // the slot/remarks without a date shouldn't re-trigger a "scheduled" email.
+    if (updates.delivery_date) {
+      const [order, delivery] = await Promise.all([
+        Order.findByPk(oid),
+        OrderDelivery.findOne({ where: { order_id: oid } })
+      ]);
+      const user = await User.findByPk(order.user_id);
+      mailer.sendDeliveryScheduledMail(user, order, delivery, getCompanySettings());
+    }
+
     return res.json({ message: 'Delivery info updated successfully!', success: true });
   } catch (err) {
     return res.status(500).json({ error: err.message });
