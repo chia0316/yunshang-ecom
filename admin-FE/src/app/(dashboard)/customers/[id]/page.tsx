@@ -207,7 +207,7 @@ export default function CustomerDetailPage({
               ) : (
                 orders.map((order) => (
                   <TableRow key={order.id}>
-                    <TableCell className="font-mono text-xs">#{order.id}</TableCell>
+                    <TableCell className="font-mono text-xs">{order.order_number}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(order.created_at).toLocaleDateString()}
                     </TableCell>

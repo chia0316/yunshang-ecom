@@ -76,18 +76,20 @@ const sendOrderConfirmationMail = (user, order, orderDetailsList, { paymentMetho
     `;
   }
 
+  const orderRef = order.order_number || `#${order.id}`;
   send({
     to: user.email,
-    subject: `Casa Yun order confirmation #${order.id}`,
-    html: `<p>Hi ${user.firstName},</p><p>Thank you for your order #${order.id}. Total: $${Number(order.total_price).toFixed(2)}.</p><ul>${itemsHtml}</ul>${paymentHtml}`
+    subject: `Casa Yun order confirmation ${orderRef}`,
+    html: `<p>Hi ${user.firstName},</p><p>Thank you for your order ${orderRef}. Total: $${Number(order.total_price).toFixed(2)}.</p><ul>${itemsHtml}</ul>${paymentHtml}`
   });
 };
 
 const sendOrderStatusUpdateMail = (user, order) => {
+  const orderRef = order.order_number || `#${order.id}`;
   send({
     to: user.email,
-    subject: `Casa Yun order #${order.id} update`,
-    html: `<p>Hi ${user.firstName},</p><p>Your order #${order.id} status has been updated to <b>${order.status}</b>.</p>`
+    subject: `Casa Yun order ${orderRef} update`,
+    html: `<p>Hi ${user.firstName},</p><p>Your order ${orderRef} status has been updated to <b>${order.status}</b>.</p>`
   });
 };
 

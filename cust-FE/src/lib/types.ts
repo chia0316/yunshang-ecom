@@ -99,6 +99,7 @@ export type OrderStatus = 'pending' | 'paid' | 'processing' | 'shipped' | 'deliv
 
 export interface Order {
   id: number;
+  order_number: string;
   user_id: number;
   total_price: string;
   status: OrderStatus;

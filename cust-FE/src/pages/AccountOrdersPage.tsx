@@ -123,7 +123,7 @@ const AccountOrdersPage: React.FC = () => {
               {/* Header */}
               <div className="flex items-center justify-between bg-gray-50 px-6 py-4 border-b">
                 <div>
-                  <p className="font-semibold text-gray-900">Order #{order.id}</p>
+                  <p className="font-semibold text-gray-900">Order {order.order_number}</p>
                   <p className="text-sm text-gray-500">
                     Placed on {new Date(order.created_at).toLocaleDateString()}
                   </p>

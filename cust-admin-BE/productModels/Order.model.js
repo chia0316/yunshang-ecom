@@ -36,6 +36,11 @@ Order.init(
       allowNull: false,
       defaultValue: false
     },
+    order_number: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      unique: true
+    },
     deleted_by_admin_id: {
       type: DataTypes.INTEGER,
       allowNull: true

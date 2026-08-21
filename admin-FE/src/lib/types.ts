@@ -113,6 +113,7 @@ export interface Payment {
 
 export interface Order {
   id: number;
+  order_number: string;
   user_id: number;
   total_price: string;
   status: OrderStatus;

@@ -678,7 +678,7 @@ const CheckoutPage: React.FC = () => {
                 Thank you for your purchase. Your order has been received and is being processed.
               </p>
               <div className="bg-gray-50 p-4 rounded-lg mb-6 text-left">
-                <p className="text-sm text-gray-600">Order Number: <strong>#{placedOrder.id}</strong></p>
+                <p className="text-sm text-gray-600">Order Number: <strong>{placedOrder.order_number}</strong></p>
                 <p className="text-sm text-gray-600">Payment method: <strong>{paymentMethod}</strong></p>
                 {paymentMethod === 'Cash' ? (
                   <>

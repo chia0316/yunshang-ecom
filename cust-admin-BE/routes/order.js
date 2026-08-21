@@ -16,6 +16,7 @@ const validate = require('../utils/validator');
 const { authenticate } = require('../utils/authenticator');
 const { getCompanySettings } = require('../utils/companySettings');
 const { resolveCoupon } = require('../utils/coupons');
+const { formatOrderNumber } = require('../utils/orderNumber');
 
 // "Sofa - 5279 L Shape" + { Material: "Solana" } -> "Sofa - 5279 L Shape — Solana"
 // Mirrors withVariantLabel in cust-FE/src/context/CartContext.tsx — used
@@ -344,6 +345,10 @@ router.post('/', authenticate, async (req, res) => {
       coupon_code: appliedCouponCode,
       discount_amount: appliedCouponCode ? discountAmount : null,
       status: 'pending'
+    });
+
+    await newOrder.update({
+      order_number: formatOrderNumber(newOrder.id, newOrder.created_at)
     });
 
     if (appliedCouponCode) {

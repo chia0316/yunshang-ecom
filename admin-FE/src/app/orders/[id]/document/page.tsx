@@ -11,11 +11,6 @@ import type { OrderDocument } from "@/lib/types";
 
 const money = (value: string | number) => `$${Number(value).toFixed(2)}`;
 
-const invoiceNumber = (orderId: number, createdAt: string) => {
-  const year = new Date(createdAt).getFullYear();
-  return `INV-${year}-${String(orderId).padStart(5, "0")}`;
-};
-
 export default function OrderDocumentPage({
   params,
 }: {
@@ -84,7 +79,7 @@ export default function OrderDocumentPage({
             <h2 className="text-lg font-bold">
               {company.gst.enabled ? "TAX INVOICE" : "SALES INVOICE"} / DELIVERY ORDER
             </h2>
-            <p>No: {invoiceNumber(order.id, order.created_at)}</p>
+            <p>No: {order.order_number}</p>
             <p>Date: {new Date(order.created_at).toLocaleDateString()}</p>
             <p className="uppercase">Status: {order.status}</p>
           </div>

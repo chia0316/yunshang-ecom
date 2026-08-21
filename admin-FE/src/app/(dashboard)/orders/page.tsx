@@ -130,7 +130,7 @@ export default function OrdersPage() {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
-      toast.success(`Order #${order.id} updated to ${status}`);
+      toast.success(`Order ${order.order_number} updated to ${status}`);
       setOrders((prev) =>
         prev.map((o) => (o.id === order.id ? { ...o, status } : o))
       );
@@ -147,7 +147,7 @@ export default function OrdersPage() {
         method: "PATCH",
         body: JSON.stringify({ status: "completed" }),
       });
-      toast.success(`Payment for order #${order.id} marked as received`);
+      toast.success(`Payment for order ${order.order_number} marked as received`);
       loadOrders();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
@@ -293,7 +293,7 @@ export default function OrdersPage() {
               orders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-mono text-xs">
-                    #{order.id}
+                    {order.order_number}
                   </TableCell>
                   <TableCell>
                     {order.user
@@ -406,7 +406,7 @@ export default function OrdersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Delivery info — Order #{deliveryDialogOrder?.id}
+              Delivery info — Order {deliveryDialogOrder?.order_number}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
