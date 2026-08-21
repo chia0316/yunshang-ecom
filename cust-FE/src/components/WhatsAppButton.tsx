@@ -1,13 +1,14 @@
 import React from 'react';
 
 const WHATSAPP_NUMBER = (import.meta.env.VITE_WHATSAPP_NUMBER || '').trim();
+const WHATSAPP_DEFAULT_MESSAGE = "Hi, I'd like to enquire about your products.";
 
 const WhatsAppButton: React.FC = () => {
   if (!WHATSAPP_NUMBER) return null;
 
   return (
     <a
-      href={`https://wa.me/${WHATSAPP_NUMBER}`}
+      href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_DEFAULT_MESSAGE)}`}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"

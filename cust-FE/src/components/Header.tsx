@@ -16,6 +16,8 @@ import { useWishlist } from "../context/WishlistContext";
 
 const OPERATING_HOURS = "Open 24 Hours";
 const SUPPORT_NUMBER = "+65 8983 5830";
+const WHATSAPP_NUMBER = (import.meta.env.VITE_WHATSAPP_NUMBER || "").trim();
+const WHATSAPP_DEFAULT_MESSAGE = "Hi, I'd like to enquire about your products.";
 
 const Header: React.FC = () => {
   const { state } = useCart();
@@ -54,7 +56,19 @@ const Header: React.FC = () => {
         </span>
         <span className="flex items-center gap-1.5">
           <Phone className="w-3.5 h-3.5" />
-          Support: {SUPPORT_NUMBER}
+          Support:{" "}
+          {WHATSAPP_NUMBER ? (
+            <a
+              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_DEFAULT_MESSAGE)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-terracotta-400 transition-colors"
+            >
+              {SUPPORT_NUMBER}
+            </a>
+          ) : (
+            SUPPORT_NUMBER
+          )}
         </span>
       </div>
 
