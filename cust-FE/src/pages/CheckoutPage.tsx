@@ -33,9 +33,9 @@ const PayNowQrCode: React.FC = () => {
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
-      <div className="w-40 h-40 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400">
-        <QrCode className="w-10 h-10 mb-1" />
-        <span className="text-xs text-center px-2">QR code coming soon</span>
+      <div className="w-72 h-72 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400">
+        <QrCode className="w-16 h-16 mb-2" />
+        <span className="text-sm text-center px-2">QR code coming soon</span>
       </div>
     );
   }
@@ -43,7 +43,7 @@ const PayNowQrCode: React.FC = () => {
     <img
       src="/paynow-qr.jpg"
       alt="PayNow QR code"
-      className="w-40 h-40 object-contain border border-gray-200 rounded-lg"
+      className="w-72 h-72 object-contain border border-gray-200 rounded-lg"
       onError={() => setFailed(true)}
     />
   );
