@@ -621,6 +621,9 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
     });
     const featuredTagLabels = featuredTags.map((t) => t.label);
 
+    const categories = await Category.findAll({ order: [['name', 'ASC']] });
+    const categoryNames = categories.map((c) => c.name);
+
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Products');
     sheet.columns = [
@@ -725,10 +728,29 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
       }
     }
 
+    // Same live dropdown for Category — the upload no longer auto-creates a
+    // category on a near-miss (e.g. "Bed" vs "Beds"), so this is what keeps
+    // that from ever being a typo in the first place.
+    const categoryColLetter = sheet.getColumn('category').letter;
+    if (categoryNames.length > 0) {
+      const formula = `"${categoryNames.join(',')}"`;
+      for (let rowNumber = 2; rowNumber <= 200; rowNumber++) {
+        sheet.getCell(`${categoryColLetter}${rowNumber}`).dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: [formula],
+          showErrorMessage: true,
+          errorTitle: 'Invalid Category',
+          error: 'Please choose a value from the dropdown list — categories are managed on the Categories page.'
+        };
+      }
+    }
+
     const instructions = workbook.addWorksheet('Instructions');
     instructions.columns = [{ header: 'Instructions', key: 'text', width: 100 }];
     [
       'Fill in the Products sheet — one row per SKU (one variant). Existing SKUs are updated, new SKUs are created.',
+      'Category must match an existing category name exactly (not case-sensitive) — it will NOT be created automatically. Check the Categories page for the exact spelling, or add a new category there first if you need one that doesn\'t exist yet.',
       'Product Handle: leave blank for a normal, single-SKU product (most rows). Fill it in only when a product has multiple variants (e.g. Material/Color options) — every row sharing the same Product Handle is treated as one product.',
       'For a multi-variant product: put the shared product-level fields (Name, Category, Brand, Short/Full Description, Tags, Image List, Video Filename, Featured?, Active?) on the FIRST row of the group only — leave them blank on the other rows, they\'ll inherit automatically. SKU, Variant Options, Price, Sale Price, Stock Qty, Weight, and Dimensions are per-row (every variant has its own).',
       'Variant Options: this row\'s specific combination, as "Name: Value" pairs separated by semicolons, e.g. "Material: Leather; Color: Black". A single value with no "Name:" prefix (e.g. just "Leather") also works.',
@@ -800,15 +822,21 @@ router.post(
       const worksheet = workbook.worksheets[0];
       const rows = parseWorksheet(worksheet);
 
+      // Does NOT auto-create on a near-miss (e.g. "Bed" vs "Beds") — that
+      // silently produced duplicate categories in practice. An unrecognized
+      // category name is a row error instead; admin manages the real list
+      // via the Categories page, same as resolveFeaturedTagId below.
       const categoryCache = new Map();
       const resolveCategoryId = async (categoryName) => {
         const key = String(categoryName).trim().toLowerCase();
         if (categoryCache.has(key)) return categoryCache.get(key);
-        let category = await Category.findOne({
+        const category = await Category.findOne({
           where: { name: { [Op.iLike]: key } }
         });
         if (!category) {
-          category = await Category.create({ name: String(categoryName).trim() });
+          throw new Error(
+            `Unknown Category "${categoryName}" — must match an existing category exactly (check the Categories page), or create it there first`
+          );
         }
         categoryCache.set(key, category.id);
         return category.id;
