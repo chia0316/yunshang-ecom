@@ -27,7 +27,7 @@ const HomePage: React.FC = () => {
 
   const promos = [
     {
-      title: 'Summer Sale',
+      title: 'Opening Sales',
       description: 'Up to 40% off on selected items',
       image: 'https://images.pexels.com/photos/1350789/pexels-photo-1350789.jpeg?auto=compress&cs=tinysrgb&w=800',
       cta: 'Shop Now',
