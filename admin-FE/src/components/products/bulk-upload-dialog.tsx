@@ -165,13 +165,13 @@ export function BulkUploadDialog({
                   </Badge>
                 )}
               </div>
-              <div className="max-h-64 overflow-y-auto rounded border">
+              <div className="max-h-80 overflow-y-auto rounded border">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
-                      <TableHead>Row</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead className="w-12">Row</TableHead>
+                      <TableHead className="w-40">SKU</TableHead>
+                      <TableHead className="w-24">Status</TableHead>
                       <TableHead>Message</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -179,7 +179,7 @@ export function BulkUploadDialog({
                     {result.report.map((row) => (
                       <TableRow key={row.row}>
                         <TableCell>{row.row}</TableCell>
-                        <TableCell>{row.sku}</TableCell>
+                        <TableCell className="whitespace-normal break-words">{row.sku}</TableCell>
                         <TableCell>
                           <Badge
                             variant={
@@ -191,7 +191,7 @@ export function BulkUploadDialog({
                             {row.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="whitespace-normal break-words text-muted-foreground">
                           {row.message}
                           {row.imageIssues && row.imageIssues.length > 0 && (
                             <ul className="mt-1 list-disc pl-4 text-xs text-destructive">
@@ -212,17 +212,17 @@ export function BulkUploadDialog({
                   <p className="text-sm font-medium">Images ZIP report</p>
                   <div className="max-h-48 overflow-y-auto rounded border">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="sticky top-0 z-10 bg-background">
                         <TableRow>
-                          <TableHead>File</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableHead className="w-40">File</TableHead>
+                          <TableHead className="w-24">Status</TableHead>
                           <TableHead>Reason</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {result.zipReport.map((entry, i) => (
                           <TableRow key={`${entry.filename}-${i}`}>
-                            <TableCell>{entry.filename}</TableCell>
+                            <TableCell className="whitespace-normal break-words">{entry.filename}</TableCell>
                             <TableCell>
                               <Badge
                                 variant={
@@ -232,7 +232,7 @@ export function BulkUploadDialog({
                                 {entry.status}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-muted-foreground">
+                            <TableCell className="whitespace-normal break-words text-muted-foreground">
                               {entry.reason}
                             </TableCell>
                           </TableRow>
