@@ -29,39 +29,38 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
-import type { DeliverySlot } from "@/lib/types";
+import type { ProductFeaturedTag } from "@/lib/types";
 
-export default function DeliverySlotsPage() {
-  const [slots, setSlots] = useState<DeliverySlot[]>([]);
+export function FeaturedTagsSection() {
+  const [tags, setTags] = useState<ProductFeaturedTag[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<DeliverySlot | null>(null);
-  const [form, setForm] = useState({ name: "", time_range: "", sort_order: "0" });
+  const [editing, setEditing] = useState<ProductFeaturedTag | null>(null);
+  const [form, setForm] = useState({ label: "", sort_order: "0" });
   const [saving, setSaving] = useState(false);
 
-  const loadSlots = () => {
+  const loadTags = () => {
     setLoading(true);
-    apiFetch<DeliverySlot[]>("/api/delivery-slots")
-      .then(setSlots)
+    apiFetch<ProductFeaturedTag[]>("/api/product-featured-tags")
+      .then(setTags)
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    loadSlots();
+    loadTags();
   }, []);
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ name: "", time_range: "", sort_order: String(slots.length + 1) });
+    setForm({ label: "", sort_order: String(tags.length + 1) });
     setDialogOpen(true);
   };
 
-  const openEdit = (slot: DeliverySlot) => {
-    setEditing(slot);
+  const openEdit = (tag: ProductFeaturedTag) => {
+    setEditing(tag);
     setForm({
-      name: slot.name,
-      time_range: slot.time_range || "",
-      sort_order: String(slot.sort_order),
+      label: tag.label,
+      sort_order: String(tag.sort_order),
     });
     setDialogOpen(true);
   };
@@ -70,25 +69,24 @@ export default function DeliverySlotsPage() {
     setSaving(true);
     try {
       const payload = {
-        name: form.name,
-        time_range: form.time_range || null,
+        label: form.label,
         sort_order: parseInt(form.sort_order || "0", 10),
       };
       if (editing) {
-        await apiFetch(`/api/delivery-slots/${editing.id}`, {
+        await apiFetch(`/api/product-featured-tags/${editing.id}`, {
           method: "PATCH",
           body: JSON.stringify(payload),
         });
-        toast.success("Delivery slot updated");
+        toast.success("Featured tag updated");
       } else {
-        await apiFetch("/api/delivery-slots", {
+        await apiFetch("/api/product-featured-tags", {
           method: "POST",
           body: JSON.stringify(payload),
         });
-        toast.success("Delivery slot created");
+        toast.success("Featured tag created");
       }
       setDialogOpen(false);
-      loadSlots();
+      loadTags();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -96,24 +94,29 @@ export default function DeliverySlotsPage() {
     }
   };
 
-  const toggleActive = async (slot: DeliverySlot) => {
+  const toggleActive = async (tag: ProductFeaturedTag) => {
     try {
-      await apiFetch(`/api/delivery-slots/${slot.id}`, {
+      await apiFetch(`/api/product-featured-tags/${tag.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ is_active: !slot.is_active }),
+        body: JSON.stringify({ is_active: !tag.is_active }),
       });
-      loadSlots();
+      loadTags();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
     }
   };
 
-  const handleDelete = async (slot: DeliverySlot) => {
-    if (!confirm(`Delete delivery slot "${slot.name}"?`)) return;
+  const handleDelete = async (tag: ProductFeaturedTag) => {
+    if (
+      !confirm(
+        `Delete featured tag "${tag.label}"? Products currently using it will just lose the tag.`
+      )
+    )
+      return;
     try {
-      await apiFetch(`/api/delivery-slots/${slot.id}`, { method: "DELETE" });
-      toast.success("Delivery slot deleted");
-      loadSlots();
+      await apiFetch(`/api/product-featured-tags/${tag.id}`, { method: "DELETE" });
+      toast.success("Featured tag deleted");
+      loadTags();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Delete failed");
     }
@@ -122,15 +125,14 @@ export default function DeliverySlotsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Delivery Slots</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage the delivery time slots customers can choose at checkout
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Manage the tags (e.g. Bestseller, New Arrival) admins can assign to
+          products. These also populate the Featured? dropdown in the
+          bulk-upload template.
+        </p>
         <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
-          Add Slot
+          Add Tag
         </Button>
       </div>
 
@@ -138,8 +140,7 @@ export default function DeliverySlotsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Time Range</TableHead>
+              <TableHead>Label</TableHead>
               <TableHead>Order</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-10" />
@@ -148,25 +149,24 @@ export default function DeliverySlotsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : slots.length === 0 ? (
+            ) : tags.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  No delivery slots yet.
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  No featured tags yet.
                 </TableCell>
               </TableRow>
             ) : (
-              slots.map((slot) => (
-                <TableRow key={slot.id}>
-                  <TableCell className="font-medium">{slot.name}</TableCell>
-                  <TableCell>{slot.time_range || "—"}</TableCell>
-                  <TableCell>{slot.sort_order}</TableCell>
+              tags.map((tag) => (
+                <TableRow key={tag.id}>
+                  <TableCell className="font-medium">{tag.label}</TableCell>
+                  <TableCell>{tag.sort_order}</TableCell>
                   <TableCell>
-                    <Badge variant={slot.is_active ? "success" : "secondary"}>
-                      {slot.is_active ? "Active" : "Inactive"}
+                    <Badge variant={tag.is_active ? "success" : "secondary"}>
+                      {tag.is_active ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -175,15 +175,15 @@ export default function DeliverySlotsPage() {
                         <MoreHorizontal className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(slot)}>
+                        <DropdownMenuItem onClick={() => openEdit(tag)}>
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => toggleActive(slot)}>
-                          {slot.is_active ? "Deactivate" : "Activate"}
+                        <DropdownMenuItem onClick={() => toggleActive(tag)}>
+                          {tag.is_active ? "Deactivate" : "Activate"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           variant="destructive"
-                          onClick={() => handleDelete(slot)}
+                          onClick={() => handleDelete(tag)}
                         >
                           Delete
                         </DropdownMenuItem>
@@ -200,31 +200,22 @@ export default function DeliverySlotsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit delivery slot" : "Add delivery slot"}</DialogTitle>
+            <DialogTitle>{editing ? "Edit featured tag" : "Add featured tag"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
-              <Label htmlFor="slot-name">Name *</Label>
+              <Label htmlFor="tag-label">Label *</Label>
               <Input
-                id="slot-name"
-                placeholder="e.g. Morning"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                id="tag-label"
+                placeholder="e.g. Bestseller"
+                value={form.label}
+                onChange={(e) => setForm({ ...form, label: e.target.value })}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="slot-range">Time Range</Label>
+              <Label htmlFor="tag-order">Sort Order</Label>
               <Input
-                id="slot-range"
-                placeholder="e.g. 9am - 12pm"
-                value={form.time_range}
-                onChange={(e) => setForm({ ...form, time_range: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="slot-order">Sort Order</Label>
-              <Input
-                id="slot-order"
+                id="tag-order"
                 type="number"
                 value={form.sort_order}
                 onChange={(e) => setForm({ ...form, sort_order: e.target.value })}
@@ -235,7 +226,7 @@ export default function DeliverySlotsPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving || !form.name}>
+            <Button onClick={handleSave} disabled={saving || !form.label}>
               {saving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>

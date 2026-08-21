@@ -10,9 +10,7 @@ import {
   Users,
   BarChart3,
   PieChart,
-  Truck,
   Tag,
-  Star,
   Mail,
   Settings,
   LogOut,
@@ -43,11 +41,7 @@ const navItems = [
   { title: "Fulfilment Report", url: "/reports/category-fulfillment", icon: PieChart },
 ];
 
-const settingsItems = [
-  { title: "General", url: "/settings/general", icon: Settings },
-  { title: "Delivery Slots", url: "/settings/delivery-slots", icon: Truck },
-  { title: "Featured Tags", url: "/settings/featured-tags", icon: Star },
-];
+const settingsItems = [{ title: "Settings", url: "/settings", icon: Settings }];
 
 export function AppSidebar() {
   const pathname = usePathname();

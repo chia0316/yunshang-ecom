@@ -29,38 +29,39 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
-import type { ProductFeaturedTag } from "@/lib/types";
+import type { DeliverySlot } from "@/lib/types";
 
-export default function FeaturedTagsPage() {
-  const [tags, setTags] = useState<ProductFeaturedTag[]>([]);
+export function DeliverySlotsSection() {
+  const [slots, setSlots] = useState<DeliverySlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<ProductFeaturedTag | null>(null);
-  const [form, setForm] = useState({ label: "", sort_order: "0" });
+  const [editing, setEditing] = useState<DeliverySlot | null>(null);
+  const [form, setForm] = useState({ name: "", time_range: "", sort_order: "0" });
   const [saving, setSaving] = useState(false);
 
-  const loadTags = () => {
+  const loadSlots = () => {
     setLoading(true);
-    apiFetch<ProductFeaturedTag[]>("/api/product-featured-tags")
-      .then(setTags)
+    apiFetch<DeliverySlot[]>("/api/delivery-slots")
+      .then(setSlots)
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    loadTags();
+    loadSlots();
   }, []);
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ label: "", sort_order: String(tags.length + 1) });
+    setForm({ name: "", time_range: "", sort_order: String(slots.length + 1) });
     setDialogOpen(true);
   };
 
-  const openEdit = (tag: ProductFeaturedTag) => {
-    setEditing(tag);
+  const openEdit = (slot: DeliverySlot) => {
+    setEditing(slot);
     setForm({
-      label: tag.label,
-      sort_order: String(tag.sort_order),
+      name: slot.name,
+      time_range: slot.time_range || "",
+      sort_order: String(slot.sort_order),
     });
     setDialogOpen(true);
   };
@@ -69,24 +70,25 @@ export default function FeaturedTagsPage() {
     setSaving(true);
     try {
       const payload = {
-        label: form.label,
+        name: form.name,
+        time_range: form.time_range || null,
         sort_order: parseInt(form.sort_order || "0", 10),
       };
       if (editing) {
-        await apiFetch(`/api/product-featured-tags/${editing.id}`, {
+        await apiFetch(`/api/delivery-slots/${editing.id}`, {
           method: "PATCH",
           body: JSON.stringify(payload),
         });
-        toast.success("Featured tag updated");
+        toast.success("Delivery slot updated");
       } else {
-        await apiFetch("/api/product-featured-tags", {
+        await apiFetch("/api/delivery-slots", {
           method: "POST",
           body: JSON.stringify(payload),
         });
-        toast.success("Featured tag created");
+        toast.success("Delivery slot created");
       }
       setDialogOpen(false);
-      loadTags();
+      loadSlots();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -94,29 +96,24 @@ export default function FeaturedTagsPage() {
     }
   };
 
-  const toggleActive = async (tag: ProductFeaturedTag) => {
+  const toggleActive = async (slot: DeliverySlot) => {
     try {
-      await apiFetch(`/api/product-featured-tags/${tag.id}`, {
+      await apiFetch(`/api/delivery-slots/${slot.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ is_active: !tag.is_active }),
+        body: JSON.stringify({ is_active: !slot.is_active }),
       });
-      loadTags();
+      loadSlots();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
     }
   };
 
-  const handleDelete = async (tag: ProductFeaturedTag) => {
-    if (
-      !confirm(
-        `Delete featured tag "${tag.label}"? Products currently using it will just lose the tag.`
-      )
-    )
-      return;
+  const handleDelete = async (slot: DeliverySlot) => {
+    if (!confirm(`Delete delivery slot "${slot.name}"?`)) return;
     try {
-      await apiFetch(`/api/product-featured-tags/${tag.id}`, { method: "DELETE" });
-      toast.success("Featured tag deleted");
-      loadTags();
+      await apiFetch(`/api/delivery-slots/${slot.id}`, { method: "DELETE" });
+      toast.success("Delivery slot deleted");
+      loadSlots();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Delete failed");
     }
@@ -125,16 +122,12 @@ export default function FeaturedTagsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Featured Tags</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage the tags (e.g. Bestseller, New Arrival) admins can assign to products.
-            These also populate the Featured? dropdown in the bulk-upload template.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Manage the delivery time slots customers can choose at checkout
+        </p>
         <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
-          Add Tag
+          Add Slot
         </Button>
       </div>
 
@@ -142,7 +135,8 @@ export default function FeaturedTagsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Label</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Time Range</TableHead>
               <TableHead>Order</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-10" />
@@ -151,24 +145,25 @@ export default function FeaturedTagsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : tags.length === 0 ? (
+            ) : slots.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  No featured tags yet.
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  No delivery slots yet.
                 </TableCell>
               </TableRow>
             ) : (
-              tags.map((tag) => (
-                <TableRow key={tag.id}>
-                  <TableCell className="font-medium">{tag.label}</TableCell>
-                  <TableCell>{tag.sort_order}</TableCell>
+              slots.map((slot) => (
+                <TableRow key={slot.id}>
+                  <TableCell className="font-medium">{slot.name}</TableCell>
+                  <TableCell>{slot.time_range || "—"}</TableCell>
+                  <TableCell>{slot.sort_order}</TableCell>
                   <TableCell>
-                    <Badge variant={tag.is_active ? "success" : "secondary"}>
-                      {tag.is_active ? "Active" : "Inactive"}
+                    <Badge variant={slot.is_active ? "success" : "secondary"}>
+                      {slot.is_active ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -177,15 +172,15 @@ export default function FeaturedTagsPage() {
                         <MoreHorizontal className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(tag)}>
+                        <DropdownMenuItem onClick={() => openEdit(slot)}>
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => toggleActive(tag)}>
-                          {tag.is_active ? "Deactivate" : "Activate"}
+                        <DropdownMenuItem onClick={() => toggleActive(slot)}>
+                          {slot.is_active ? "Deactivate" : "Activate"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           variant="destructive"
-                          onClick={() => handleDelete(tag)}
+                          onClick={() => handleDelete(slot)}
                         >
                           Delete
                         </DropdownMenuItem>
@@ -202,22 +197,31 @@ export default function FeaturedTagsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit featured tag" : "Add featured tag"}</DialogTitle>
+            <DialogTitle>{editing ? "Edit delivery slot" : "Add delivery slot"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
-              <Label htmlFor="tag-label">Label *</Label>
+              <Label htmlFor="slot-name">Name *</Label>
               <Input
-                id="tag-label"
-                placeholder="e.g. Bestseller"
-                value={form.label}
-                onChange={(e) => setForm({ ...form, label: e.target.value })}
+                id="slot-name"
+                placeholder="e.g. Morning"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="tag-order">Sort Order</Label>
+              <Label htmlFor="slot-range">Time Range</Label>
               <Input
-                id="tag-order"
+                id="slot-range"
+                placeholder="e.g. 9am - 12pm"
+                value={form.time_range}
+                onChange={(e) => setForm({ ...form, time_range: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="slot-order">Sort Order</Label>
+              <Input
+                id="slot-order"
                 type="number"
                 value={form.sort_order}
                 onChange={(e) => setForm({ ...form, sort_order: e.target.value })}
@@ -228,7 +232,7 @@ export default function FeaturedTagsPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving || !form.label}>
+            <Button onClick={handleSave} disabled={saving || !form.name}>
               {saving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
