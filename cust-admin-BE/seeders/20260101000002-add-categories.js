@@ -10,7 +10,7 @@ module.exports = {
         updated_at: new Date()
       },
       {
-        name: 'Beds & Mattresses',
+        name: 'Beds',
         description: 'Beds, mattresses, and mobility aids',
         created_at: new Date(),
         updated_at: new Date()
@@ -20,7 +20,7 @@ module.exports = {
 
   down: async (queryInterface) => {
     await queryInterface.bulkDelete('categories', {
-      name: ['Dining Furniture', 'Beds & Mattresses']
+      name: ['Dining Furniture', 'Beds']
     });
   }
 };

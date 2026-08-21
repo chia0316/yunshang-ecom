@@ -7,7 +7,7 @@ import type { Category } from '../lib/types';
 // Homepage "Shop by Category" is a fixed, curated set (not every category in
 // the catalog) — matched against Category.name from the API.
 const FEATURED_CATEGORIES = [
-  { name: 'Beds & Mattresses', image: 'https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&cs=tinysrgb&w=500' },
+  { name: 'Beds', image: 'https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&cs=tinysrgb&w=500' },
   { name: 'Sofas', image: 'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=500' },
   { name: 'Dining Furniture', image: 'https://images.pexels.com/photos/1099816/pexels-photo-1099816.jpeg?auto=compress&cs=tinysrgb&w=500' },
   { name: 'Mobility Aids', image: 'https://images.pexels.com/photos/667838/pexels-photo-667838.jpeg?auto=compress&cs=tinysrgb&w=500' },

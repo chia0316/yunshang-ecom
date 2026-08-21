@@ -3,7 +3,7 @@
 module.exports = {
   up: async (queryInterface) => {
     const categories = await queryInterface.sequelize.query(
-      `SELECT id, name FROM categories WHERE name IN ('Dining Furniture', 'Beds & Mattresses');`,
+      `SELECT id, name FROM categories WHERE name IN ('Dining Furniture', 'Beds');`,
       { type: queryInterface.sequelize.QueryTypes.SELECT }
     );
     const categoryId = Object.fromEntries(categories.map((c) => [c.name, c.id]));
@@ -35,7 +35,7 @@ module.exports = {
         sku: 'CYL06-I160',
         name: 'Yoga Bed (1800x2000mm)',
         brand: 'Lunora',
-        category_id: categoryId['Beds & Mattresses'],
+        category_id: categoryId['Beds'],
         short_description:
           'Smart yoga bed with 12-motor system, back/leg adjustment, and TPEE comfort layer',
         description:
@@ -63,7 +63,7 @@ module.exports = {
         sku: 'CYL06-N935',
         name: 'Lumbar Support Mattress (1500x2000mm)',
         brand: 'Lunora',
-        category_id: categoryId['Beds & Mattresses'],
+        category_id: categoryId['Beds'],
         short_description:
           'Smart lumbar support mattress with 3-motor system and latex comfort layer',
         description:
@@ -91,7 +91,7 @@ module.exports = {
         sku: 'CYL06-RB01-R',
         name: 'Rotating Bed (1000x2000mm, Right Rotation)',
         brand: 'Lunora',
-        category_id: categoryId['Beds & Mattresses'],
+        category_id: categoryId['Beds'],
         short_description:
           'Rotating bed with right-rotation entry/exit, 4-motor system, and tech leather backrest',
         description:
@@ -119,7 +119,7 @@ module.exports = {
         sku: 'CYL06-T300',
         name: 'Turning Care Bed (1050x2000mm)',
         brand: 'Lunora',
-        category_id: categoryId['Beds & Mattresses'],
+        category_id: categoryId['Beds'],
         short_description:
           'Rotating bed with right-rotation entry/exit, 4-motor system, and tech leather backrest',
         description:
@@ -147,7 +147,7 @@ module.exports = {
         sku: 'CYL06-Server',
         name: 'Saihui Walker (Medium)',
         brand: 'Lunora',
-        category_id: categoryId['Beds & Mattresses'],
+        category_id: categoryId['Beds'],
         short_description:
           'Medium-size mobility walker with 150kg load capacity, brake casters, and shopping basket',
         description:
