@@ -27,8 +27,10 @@ import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { BulkUploadDialog } from "@/components/products/bulk-upload-dialog";
 import { ImageGalleryDialog } from "@/components/products/image-gallery-dialog";
 import { BulkRemoveResultDialog } from "@/components/products/bulk-remove-result-dialog";
+import { useConfirm } from "@/components/confirm-provider";
 
 export default function ProductsPage() {
+  const confirm = useConfirm();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +74,13 @@ export default function ProductsPage() {
   };
 
   const handleDelete = async (product: Product) => {
-    if (!confirm(`Delete "${product.name}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete "${product.name}"?`,
+      description: "This cannot be undone.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       await apiFetch(`/api/products/${product.id}`, { method: "DELETE" });
       toast.success("Product deleted");
@@ -97,12 +105,14 @@ export default function ProductsPage() {
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (
-      !confirm(
-        `Delete ${selectedIds.size} selected product${selectedIds.size === 1 ? "" : "s"}? Products with order history will be deactivated instead of deleted. This cannot be undone.`
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: `Delete ${selectedIds.size} selected product${selectedIds.size === 1 ? "" : "s"}?`,
+      description:
+        "Products with order history will be deactivated instead of deleted. This cannot be undone.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setDeleting(true);
     try {
       const res = await apiFetch<BulkRemoveResponse>("/api/products/bulk-delete", {

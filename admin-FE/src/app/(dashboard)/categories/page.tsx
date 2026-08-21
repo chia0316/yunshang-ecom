@@ -28,9 +28,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
+import { useConfirm } from "@/components/confirm-provider";
 import type { Category } from "@/lib/types";
 
 export default function CategoriesPage() {
+  const confirm = useConfirm();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -91,7 +93,12 @@ export default function CategoriesPage() {
   };
 
   const handleDelete = async (category: Category) => {
-    if (!confirm(`Delete category "${category.name}"?`)) return;
+    const ok = await confirm({
+      title: `Delete category "${category.name}"?`,
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       await apiFetch(`/api/category/${category.id}`, { method: "DELETE" });
       toast.success("Category deleted");

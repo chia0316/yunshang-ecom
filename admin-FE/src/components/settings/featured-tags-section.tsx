@@ -29,9 +29,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
+import { useConfirm } from "@/components/confirm-provider";
 import type { ProductFeaturedTag } from "@/lib/types";
 
 export function FeaturedTagsSection() {
+  const confirm = useConfirm();
   const [tags, setTags] = useState<ProductFeaturedTag[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -107,12 +109,13 @@ export function FeaturedTagsSection() {
   };
 
   const handleDelete = async (tag: ProductFeaturedTag) => {
-    if (
-      !confirm(
-        `Delete featured tag "${tag.label}"? Products currently using it will just lose the tag.`
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: `Delete featured tag "${tag.label}"?`,
+      description: "Products currently using it will just lose the tag.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       await apiFetch(`/api/product-featured-tags/${tag.id}`, { method: "DELETE" });
       toast.success("Featured tag deleted");

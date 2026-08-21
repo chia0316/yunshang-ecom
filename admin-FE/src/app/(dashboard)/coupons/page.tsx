@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
+import { useConfirm } from "@/components/confirm-provider";
 import type { Coupon } from "@/lib/types";
 
 const emptyForm = {
@@ -49,6 +50,7 @@ const emptyForm = {
 };
 
 export default function CouponsPage() {
+  const confirm = useConfirm();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -139,7 +141,12 @@ export default function CouponsPage() {
   };
 
   const handleDelete = async (coupon: Coupon) => {
-    if (!confirm(`Delete coupon "${coupon.code}"?`)) return;
+    const ok = await confirm({
+      title: `Delete coupon "${coupon.code}"?`,
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       await apiFetch(`/api/coupons/${coupon.id}`, { method: "DELETE" });
       toast.success("Coupon deleted");

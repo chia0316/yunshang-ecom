@@ -29,9 +29,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
+import { useConfirm } from "@/components/confirm-provider";
 import type { DeliverySlot } from "@/lib/types";
 
 export function DeliverySlotsSection() {
+  const confirm = useConfirm();
   const [slots, setSlots] = useState<DeliverySlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -109,7 +111,12 @@ export function DeliverySlotsSection() {
   };
 
   const handleDelete = async (slot: DeliverySlot) => {
-    if (!confirm(`Delete delivery slot "${slot.name}"?`)) return;
+    const ok = await confirm({
+      title: `Delete delivery slot "${slot.name}"?`,
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       await apiFetch(`/api/delivery-slots/${slot.id}`, { method: "DELETE" });
       toast.success("Delivery slot deleted");

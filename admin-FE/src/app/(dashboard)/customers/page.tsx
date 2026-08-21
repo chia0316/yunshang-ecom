@@ -15,9 +15,11 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiFetch } from "@/lib/api";
+import { useConfirm } from "@/components/confirm-provider";
 import type { User } from "@/lib/types";
 
 export default function CustomersPage() {
+  const confirm = useConfirm();
   const [status, setStatus] = useState<"Active" | "Suspended">("Active");
   const [customers, setCustomers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,12 +40,13 @@ export default function CustomersPage() {
 
   const toggleStatus = async (customer: User) => {
     const nextStatus = customer.status === "Active" ? "Suspended" : "Active";
-    if (
-      !confirm(
-        `${nextStatus === "Suspended" ? "Suspend" : "Reactivate"} ${customer.firstName} ${customer.lastName}?`
-      )
-    )
-      return;
+    const suspending = nextStatus === "Suspended";
+    const ok = await confirm({
+      title: `${suspending ? "Suspend" : "Reactivate"} ${customer.firstName} ${customer.lastName}?`,
+      confirmLabel: suspending ? "Suspend" : "Reactivate",
+      variant: suspending ? "destructive" : "default",
+    });
+    if (!ok) return;
     try {
       await apiFetch("/admin/updateUserData", {
         method: "PUT",
