@@ -11,6 +11,16 @@ const TYPE_OPTIONS: { value: EnquiryType; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 
+// Rolling 2-week booking window, recomputed on every render so it's always
+// "today" through "today + 14 days" — never a stale hardcoded date.
+const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+const getAppointmentDateBounds = () => {
+  const today = new Date();
+  const max = new Date(today);
+  max.setDate(max.getDate() + 14);
+  return { min: toDateInputValue(today), max: toDateInputValue(max) };
+};
+
 const VisitUsPage: React.FC = () => {
   const [formData, setFormData] = useState({
     type: 'appointment' as EnquiryType,
@@ -26,6 +36,7 @@ const VisitUsPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const appointmentDateBounds = getAppointmentDateBounds();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -148,11 +159,15 @@ const VisitUsPage: React.FC = () => {
                     <input
                       type="date"
                       name="preferred_date"
-                      min={new Date().toISOString().slice(0, 10)}
+                      min={appointmentDateBounds.min}
+                      max={appointmentDateBounds.max}
                       value={formData.preferred_date}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Appointments can be booked up to 2 weeks in advance.
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Time</label>
