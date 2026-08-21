@@ -42,22 +42,25 @@ const HomePage: React.FC = () => {
 
   const reviews = [
     {
-      name: 'Sarah Johnson',
+      name: 'Mr Tan',
       rating: 5,
-      comment: 'Amazing quality furniture! The delivery was quick and the sofa is exactly as pictured.',
-      product: 'Modern Sectional Sofa',
+      comment:
+        "Bought this for my elderly father who needs help turning regularly. The flip function is smooth and at a nice, gentle pace — doesn't jolt him at all. Really eases the burden of manual repositioning, and he seems much more comfortable now. Would recommend to anyone caring for elderly parents.",
+      product: 'Electrical Flipping Bed (Single)',
     },
     {
-      name: 'Michael Chen',
+      name: 'Ms L.',
       rating: 5,
-      comment: 'Love the dining table I purchased. Great craftsmanship and excellent customer service.',
-      product: 'Oak Dining Table',
+      comment:
+        "I sleep so much more soundly since switching to this bed. My favourite feature is being able to angle it up slightly when I'm browsing my phone before sleep — much better for my neck than propping up on pillows. Great investment for the bedroom.",
+      product: 'Yoga Electrical Bed (King Size)',
     },
     {
-      name: 'Emily Davis',
+      name: 'Mr Chan',
       rating: 5,
-      comment: 'The bedroom set exceeded my expectations. Beautiful design and very comfortable.',
-      product: 'Platform Bed Frame',
+      comment:
+        "After a long day at work, this is exactly what I needed. I sit down for what's supposed to be a quick rest and end up dozing off — it's that comfortable. The Solana leather feels great too. Highly recommend for anyone who wants to properly unwind at home.",
+      product: 'Sofa - CL398 Long (Solana 6201)',
     },
   ];
 
