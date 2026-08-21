@@ -4,11 +4,13 @@ import { ArrowRight, Star } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import type { Category } from '../lib/types';
 
-const CATEGORY_IMAGES = [
-  'https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&cs=tinysrgb&w=500',
-  'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=500',
-  'https://images.pexels.com/photos/1099816/pexels-photo-1099816.jpeg?auto=compress&cs=tinysrgb&w=500',
-  'https://images.pexels.com/photos/667838/pexels-photo-667838.jpeg?auto=compress&cs=tinysrgb&w=500',
+// Homepage "Shop by Category" is a fixed, curated set (not every category in
+// the catalog) — matched against Category.name from the API.
+const FEATURED_CATEGORIES = [
+  { name: 'Beds & Mattresses', image: 'https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&cs=tinysrgb&w=500' },
+  { name: 'Sofas', image: 'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=500' },
+  { name: 'Dining Furniture', image: 'https://images.pexels.com/photos/1099816/pexels-photo-1099816.jpeg?auto=compress&cs=tinysrgb&w=500' },
+  { name: 'Mobility Aids', image: 'https://images.pexels.com/photos/667838/pexels-photo-667838.jpeg?auto=compress&cs=tinysrgb&w=500' },
 ];
 
 const HomePage: React.FC = () => {
@@ -17,6 +19,11 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     apiFetch<Category[]>('/api/category', { auth: false }).then(setCategories);
   }, []);
+
+  const featuredCategories = FEATURED_CATEGORIES.map((featured) => ({
+    ...featured,
+    category: categories.find((c) => c.name === featured.name),
+  })).filter((c) => c.category);
 
   const promos = [
     {
@@ -110,21 +117,21 @@ const HomePage: React.FC = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {categories.map((category, index) => (
+          {featuredCategories.map(({ category, image }) => (
             <Link
-              key={category.id}
-              to={`/products/${category.id}`}
+              key={category!.id}
+              to={`/products/${category!.id}`}
               className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
             >
               <div className="aspect-square">
                 <img
-                  src={CATEGORY_IMAGES[index % CATEGORY_IMAGES.length]}
-                  alt={category.name}
+                  src={image}
+                  alt={category!.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
                 <div className="absolute bottom-4 left-4 right-4">
-                  <h3 className="text-white text-2xl font-bold mb-2">{category.name}</h3>
+                  <h3 className="text-white text-2xl font-bold mb-2">{category!.name}</h3>
                   <span className="text-terracotta-400 font-medium group-hover:text-terracotta-300 transition-colors">
                     Explore Collection →
                   </span>
