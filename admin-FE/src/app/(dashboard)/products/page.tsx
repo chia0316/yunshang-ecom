@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Images, MoreHorizontal, Plus, Upload } from "lucide-react";
+import { Images, MoreHorizontal, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -21,10 +22,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { apiFetch, getProductImageUrl } from "@/lib/api";
-import type { Category, Product } from "@/lib/types";
+import type { BulkRemoveResponse, Category, Product } from "@/lib/types";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { BulkUploadDialog } from "@/components/products/bulk-upload-dialog";
 import { ImageGalleryDialog } from "@/components/products/image-gallery-dialog";
+import { BulkRemoveResultDialog } from "@/components/products/bulk-remove-result-dialog";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -35,6 +37,9 @@ export default function ProductsPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<BulkRemoveResponse | null>(null);
 
   const loadProducts = useCallback(async (searchText?: string) => {
     setLoading(true);
@@ -62,6 +67,7 @@ export default function ProductsPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setSelectedIds(new Set());
     loadProducts(search);
   };
 
@@ -73,6 +79,43 @@ export default function ProductsPage() {
       loadProducts(search);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Delete failed");
+    }
+  };
+
+  const toggleSelected = (id: number, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    setSelectedIds(checked ? new Set(products.map((p) => p.id)) : new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (
+      !confirm(
+        `Delete ${selectedIds.size} selected product${selectedIds.size === 1 ? "" : "s"}? Products with order history will be deactivated instead of deleted. This cannot be undone.`
+      )
+    )
+      return;
+    setDeleting(true);
+    try {
+      const res = await apiFetch<BulkRemoveResponse>("/api/products/bulk-delete", {
+        method: "POST",
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+      setDeleteResult(res);
+      setSelectedIds(new Set());
+      loadProducts(search);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bulk delete failed");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -106,22 +149,55 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <Input
-          placeholder="Search by name, SKU, or brand..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
-        />
-        <Button type="submit" variant="secondary">
-          Search
-        </Button>
-      </form>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <Input
+            placeholder="Search by name, SKU, or brand..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-sm"
+          />
+          <Button type="submit" variant="secondary">
+            Search
+          </Button>
+        </form>
+
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 rounded-md border bg-muted/50 px-3 py-2">
+            <span className="text-sm font-medium">
+              {selectedIds.size} selected
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={deleting}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {deleting ? "Deleting..." : "Delete Selected"}
+            </Button>
+          </div>
+        )}
+      </div>
 
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={products.length > 0 && selectedIds.size === products.length}
+                  onCheckedChange={(checked) => toggleSelectAll(checked === true)}
+                  aria-label="Select all"
+                />
+              </TableHead>
               <TableHead className="w-16">Image</TableHead>
               <TableHead>SKU</TableHead>
               <TableHead>Name</TableHead>
@@ -135,19 +211,26 @@ export default function ProductsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={9} className="text-center text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : products.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={9} className="text-center text-muted-foreground">
                   No products found.
                 </TableCell>
               </TableRow>
             ) : (
               products.map((product) => (
                 <TableRow key={product.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(product.id)}
+                      onCheckedChange={(checked) => toggleSelected(product.id, checked === true)}
+                      aria-label={`Select ${product.name}`}
+                    />
+                  </TableCell>
                   <TableCell>
                     {product.image_filenames[0] ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -247,6 +330,7 @@ export default function ProductsPage() {
         onUploaded={() => loadProducts(search)}
       />
       <ImageGalleryDialog open={galleryOpen} onOpenChange={setGalleryOpen} />
+      <BulkRemoveResultDialog result={deleteResult} onClose={() => setDeleteResult(null)} />
     </div>
   );
 }

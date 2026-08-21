@@ -209,6 +209,29 @@ export interface BulkUploadResponse {
   zipReport?: ZipReportEntry[];
 }
 
+// Shared shape for both removal flows — the product list's multi-select
+// "Delete Selected" and the mass-upload dialog's "Remove" mode. A product
+// with order history can't be permanently deleted (order records must stay
+// intact), so it's deactivated instead — "deactivated" is a valid, expected
+// outcome here, not a failure.
+export interface BulkRemoveReportRow {
+  row?: number;
+  id?: number;
+  sku: string;
+  status: "deleted" | "deactivated" | "error";
+  message?: string;
+}
+
+export interface BulkRemoveResponse {
+  summary: {
+    total?: number;
+    deleted: number;
+    deactivated: number;
+    errors: number;
+  };
+  report: BulkRemoveReportRow[];
+}
+
 export interface DeliverySlot {
   id: number;
   name: string;

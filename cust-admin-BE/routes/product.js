@@ -74,6 +74,23 @@ const toBoolean = (value, defaultValue) => {
   return /^(y|yes|true|1)$/i.test(String(value).trim());
 };
 
+// Shared by the bulk-delete (product list) and bulk-remove (mass upload)
+// flows. A product that's ever been ordered can't be hard-deleted — the
+// order_details FK is ON DELETE RESTRICT, by design, so order history never
+// silently disappears — so this falls back to deactivating it instead
+// (is_active: false), which is the app's actual "hide this product"
+// mechanism everywhere else. Returns which of the two actually happened.
+const deleteOrDeactivateProduct = async (product) => {
+  try {
+    await product.destroy();
+    return { status: 'deleted' };
+  } catch (err) {
+    if (err.name !== 'SequelizeForeignKeyConstraintError') throw err;
+    await product.update({ is_active: false });
+    return { status: 'deactivated', message: 'Has order history — deactivated instead of deleted' };
+  }
+};
+
 const toList = (value) => {
   if (!value) return [];
   return String(value)
@@ -458,11 +475,57 @@ router.delete('/:pid', authenticate, async (req, res) => {
   }
   try {
     const { pid } = req.params;
-    const deletedCount = await Product.destroy({ where: { id: pid } });
-    if (deletedCount === 0) {
+    const product = await Product.findByPk(pid);
+    if (!product) {
       return res.status(404).json({ message: 'Product not found', success: false });
     }
-    return res.json({ message: 'Product deleted successfully!', success: true });
+    const result = await deleteOrDeactivateProduct(product);
+    return res.json({
+      message:
+        result.status === 'deleted'
+          ? 'Product deleted successfully!'
+          : 'Product has order history, so it was deactivated instead of deleted.',
+      status: result.status,
+      success: true
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Deletes each selected product, falling back to deactivating it if it has
+// order history (see deleteOrDeactivateProduct). Used by the product list's
+// multi-select "Delete Selected" action.
+router.post('/bulk-delete', authenticate, async (req, res) => {
+  if (!req.isAdmin) {
+    return res.status(403).json({ error: 'Unauthorized request' });
+  }
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids must be a non-empty array' });
+  }
+  try {
+    const report = [];
+    for (const id of ids) {
+      const product = await Product.findByPk(id);
+      if (!product) {
+        report.push({ id, status: 'error', message: 'Product not found' });
+        continue;
+      }
+      const { sku } = product;
+      try {
+        const result = await deleteOrDeactivateProduct(product);
+        report.push({ id, sku, ...result });
+      } catch (err) {
+        report.push({ id, sku, status: 'error', message: err.message });
+      }
+    }
+    const summary = {
+      deleted: report.filter((r) => r.status === 'deleted').length,
+      deactivated: report.filter((r) => r.status === 'deactivated').length,
+      errors: report.filter((r) => r.status === 'error').length
+    };
+    return res.json({ summary, report });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -886,6 +949,105 @@ router.post(
       };
 
       return res.json({ summary, report, zipReport });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// Simple one-column template for the mass-upload dialog's "Remove" mode —
+// deliberately much smaller than the full product template, since removing
+// products only needs their SKUs.
+router.get('/bulk-remove/template', authenticate, async (req, res) => {
+  if (!req.isAdmin) {
+    return res.status(403).json({ error: 'Unauthorized request' });
+  }
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Remove');
+    sheet.columns = [{ header: 'SKU', key: 'sku', width: 24 }];
+    sheet.addRow({ sku: 'SOFA-001' });
+
+    const instructions = workbook.addWorksheet('Instructions');
+    instructions.columns = [{ header: 'Instructions', key: 'text', width: 100 }];
+    [
+      'List one SKU per row — every matching product will be removed.',
+      'If a product has order history, it can\'t be permanently deleted (order records must stay intact) — it gets deactivated instead, which hides it from the storefront the same way. The report after upload shows which happened for each SKU.',
+      'A SKU that doesn\'t match any product is reported as an error and skipped — nothing else is affected.'
+    ].forEach((text) => instructions.addRow({ text }));
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="product-bulk-remove-template.xlsx"'
+    );
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post(
+  '/bulk-remove',
+  authenticate,
+  (req, res, next) => {
+    memoryUpload.single('file')(req, res, (error) => {
+      if (error) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'File too large (max 50MB)' });
+        }
+        return res.status(400).json({ error: error.message });
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    if (!req.isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized request' });
+    }
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const isCsv = file.originalname.toLowerCase().endsWith('.csv');
+      if (isCsv) {
+        await workbook.csv.read(Readable.from(file.buffer));
+      } else {
+        await workbook.xlsx.load(file.buffer);
+      }
+      const worksheet = workbook.worksheets[0];
+      const rows = parseWorksheet(worksheet);
+
+      const report = [];
+      for (const row of rows) {
+        try {
+          const product = await Product.findOne({ where: { sku: row.sku } });
+          if (!product) {
+            report.push({ row: row.rowNumber, sku: row.sku, status: 'error', message: 'SKU not found' });
+            continue;
+          }
+          const result = await deleteOrDeactivateProduct(product);
+          report.push({ row: row.rowNumber, sku: row.sku, ...result });
+        } catch (rowError) {
+          report.push({ row: row.rowNumber, sku: row.sku, status: 'error', message: rowError.message });
+        }
+      }
+
+      const summary = {
+        total: report.length,
+        deleted: report.filter((r) => r.status === 'deleted').length,
+        deactivated: report.filter((r) => r.status === 'deactivated').length,
+        errors: report.filter((r) => r.status === 'error').length
+      };
+
+      return res.json({ summary, report });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
