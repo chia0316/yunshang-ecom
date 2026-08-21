@@ -21,6 +21,18 @@ const getAppointmentDateBounds = () => {
   return { min: toDateInputValue(today), max: toDateInputValue(max) };
 };
 
+// Store is open 24 hours, so every hour of the day is a bookable slot.
+const formatHour = (hour: number) => {
+  const period = hour < 12 ? 'AM' : 'PM';
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}:00 ${period}`;
+};
+const TIME_SLOT_OPTIONS = Array.from({ length: 24 }, (_, hour) => {
+  const start = formatHour(hour);
+  const end = formatHour((hour + 1) % 24);
+  return `${start} - ${end}`;
+});
+
 const VisitUsPage: React.FC = () => {
   const [formData, setFormData] = useState({
     type: 'appointment' as EnquiryType,
@@ -171,14 +183,19 @@ const VisitUsPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Time</label>
-                    <input
-                      type="text"
+                    <select
                       name="preferred_time"
-                      placeholder="e.g. Afternoon"
                       value={formData.preferred_time}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
-                    />
+                    >
+                      <option value="">Select a time</option>
+                      {TIME_SLOT_OPTIONS.map((slot) => (
+                        <option key={slot} value={slot}>
+                          {slot}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="md:col-span-2">
                     <label className="flex items-center gap-2 text-sm text-gray-700">
