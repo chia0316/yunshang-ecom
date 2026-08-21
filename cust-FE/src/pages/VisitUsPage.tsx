@@ -119,10 +119,11 @@ const VisitUsPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile *</label>
                 <input
                   type="tel"
                   name="mobile"
+                  required
                   value={formData.mobile}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"

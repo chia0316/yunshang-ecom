@@ -13,7 +13,8 @@ router.post('/', async (req, res) => {
   const isValid = await validate.run(req, res, [
     body('type').isIn(['appointment', 'enquiry', 'other']).withMessage('Invalid enquiry type'),
     body('name').exists().notEmpty().withMessage('Name cannot be empty'),
-    body('email').exists().isEmail().withMessage('A valid email is required')
+    body('email').exists().isEmail().withMessage('A valid email is required'),
+    body('mobile').exists().notEmpty().withMessage('Mobile number is required')
   ]);
   if (!isValid) {
     return;
@@ -24,7 +25,7 @@ router.post('/', async (req, res) => {
       type,
       name,
       email,
-      mobile: mobile || null,
+      mobile,
       preferred_date: preferred_date || null,
       preferred_time: preferred_time || null,
       message: message || null,
