@@ -35,9 +35,6 @@ const Footer: React.FC = () => {
               <Link to="/visit-us" className="block text-gray-300 hover:text-terracotta-400 transition-colors text-sm">
                 Contact Us
               </Link>
-              <a href="#" className="block text-gray-300 hover:text-terracotta-400 transition-colors text-sm">
-                Shipping Info
-              </a>
               <Link to="/terms" className="block text-gray-300 hover:text-terracotta-400 transition-colors text-sm">
                 Terms &amp; Conditions
               </Link>
@@ -73,7 +70,7 @@ const Footer: React.FC = () => {
 
         <div className="border-t border-stone-700 mt-8 pt-8 text-center">
           <p className="text-gray-400 text-sm">
-            © 2026 Casa Yun. All rights reserved.
+            © 2026 YUN SHANG PTE. LTD. All rights reserved.
           </p>
         </div>
       </div>
