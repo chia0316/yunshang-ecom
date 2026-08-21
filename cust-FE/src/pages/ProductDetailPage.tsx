@@ -18,13 +18,22 @@ const ProductDetailPage: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
-    setLoading(true);
+    // Only the very first load shows the full-page "Loading product..."
+    // state (loading starts true and is never reset to true again below).
+    // Switching variants keeps the current product on screen while the new
+    // one loads in the background, instead of blanking the whole page and
+    // flashing back — that swap is near-instant anyway.
     setSelectedImage(0);
     setQuantity(1);
     apiFetch<Product>(`/api/products/single/${id}`, { auth: false })
-      .then(setProduct)
-      .catch(() => setProduct(null))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        setProduct(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setProduct(null);
+        setLoading(false);
+      });
   }, [id]);
 
   if (loading) {
@@ -150,6 +159,40 @@ const ProductDetailPage: React.FC = () => {
                   )}
                 </button>
               ))}
+            </div>
+          )}
+
+          {variants.length > 1 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Other options</h3>
+              <div className="grid grid-cols-4 gap-4">
+                {variants.map((v) => {
+                  const isCurrent = v.id === product.id;
+                  const label = v.variant_options
+                    ? Object.values(v.variant_options).join(', ')
+                    : v.sku;
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => !isCurrent && navigate(`/product/${v.id}`)}
+                      className={`group relative aspect-square bg-gray-100 rounded-lg overflow-hidden ${
+                        isCurrent ? 'ring-2 ring-terracotta-600' : 'hover:ring-2 hover:ring-gray-300'
+                      }`}
+                      title={label}
+                    >
+                      <img
+                        src={getProductImageUrl(v.image_filenames[0] || product.image_filenames[0])}
+                        alt={label}
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute inset-x-0 bottom-0 truncate bg-black/50 px-1 py-0.5 text-[10px] text-white">
+                        {label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
