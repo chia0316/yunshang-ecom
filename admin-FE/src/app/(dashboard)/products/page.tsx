@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Images, MoreHorizontal, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -89,6 +89,45 @@ export default function ProductsPage() {
       toast.error(err instanceof Error ? err.message : "Delete failed");
     }
   };
+
+  // Groups variant rows (same product_handle) so they read as one product
+  // with N variants instead of N unrelated-looking rows — display only,
+  // doesn't touch the underlying flat list or how selection/actions work.
+  // Rows without a handle (or an orphaned handle with only one row left)
+  // keep their original position; rows sharing a handle become contiguous,
+  // appearing at the position of the first member encountered.
+  const displayRows = useMemo(() => {
+    const counts = new Map<string, number>();
+    products.forEach((p) => {
+      if (p.product_handle) counts.set(p.product_handle, (counts.get(p.product_handle) || 0) + 1);
+    });
+
+    const ordered: Product[] = [];
+    const groupStartIndex = new Map<string, number>();
+    products.forEach((p) => {
+      if (!p.product_handle || (counts.get(p.product_handle) || 0) < 2) {
+        ordered.push(p);
+        return;
+      }
+      const startIdx = groupStartIndex.get(p.product_handle);
+      if (startIdx === undefined) {
+        ordered.push(p);
+        groupStartIndex.set(p.product_handle, ordered.length - 1);
+      } else {
+        let insertAt = startIdx + 1;
+        while (insertAt < ordered.length && ordered[insertAt].product_handle === p.product_handle) {
+          insertAt++;
+        }
+        ordered.splice(insertAt, 0, p);
+      }
+    });
+
+    return ordered.map((product, i) => ({
+      product,
+      groupSize: product.product_handle ? counts.get(product.product_handle) || 1 : 1,
+      isFirstOfGroup: i === 0 || ordered[i - 1].product_handle !== product.product_handle,
+    }));
+  }, [products]);
 
   const toggleSelected = (id: number, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -232,96 +271,110 @@ export default function ProductsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedIds.has(product.id)}
-                      onCheckedChange={(checked) => toggleSelected(product.id, checked === true)}
-                      aria-label={`Select ${product.name}`}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {product.image_filenames[0] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={getProductImageUrl(product.image_filenames[0])}
-                        alt={product.name}
-                        className="h-10 w-10 rounded object-cover"
+              displayRows.map(({ product, groupSize, isFirstOfGroup }) => {
+                const isGrouped = groupSize > 1;
+                const variantLabel = product.variant_options
+                  ? Object.values(product.variant_options).join(", ")
+                  : "Variant";
+                return (
+                  <TableRow key={product.id}>
+                    <TableCell
+                      className={isGrouped ? "border-l-2 border-l-primary" : undefined}
+                    >
+                      <Checkbox
+                        checked={selectedIds.has(product.id)}
+                        onCheckedChange={(checked) => toggleSelected(product.id, checked === true)}
+                        aria-label={`Select ${product.name}`}
                       />
-                    ) : (
-                      <div className="h-10 w-10 rounded bg-muted" />
-                    )}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {product.sku}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {product.name}
-                    {product.featured_tag && (
-                      <Badge variant="warning" className="ml-2">
-                        {product.featured_tag.label}
-                      </Badge>
-                    )}
-                    {product.lead_time_days > 0 && (
-                      <Badge variant="info" className="ml-2">
-                        {product.lead_time_days}d lead time
-                      </Badge>
-                    )}
-                    {product.product_handle && (
-                      <Badge variant="secondary" className="ml-2" title={`Variant of "${product.product_handle}"`}>
-                        {product.variant_options
-                          ? Object.values(product.variant_options).join(", ")
-                          : "Variant"}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>{product.category?.name || "—"}</TableCell>
-                  <TableCell>
-                    {product.sale_price ? (
-                      <span className="flex items-center gap-1">
-                        <span className="text-muted-foreground line-through">
-                          ${Number(product.price).toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      {product.image_filenames[0] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={getProductImageUrl(product.image_filenames[0])}
+                          alt={product.name}
+                          className="h-10 w-10 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded bg-muted" />
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {product.sku}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {isGrouped && !isFirstOfGroup && (
+                        <span className="mr-1 text-muted-foreground">↳</span>
+                      )}
+                      {(!isGrouped || isFirstOfGroup) && product.name}
+                      {isGrouped && isFirstOfGroup && (
+                        <Badge variant="outline" className="ml-2">
+                          {groupSize} variants
+                        </Badge>
+                      )}
+                      {product.featured_tag && (
+                        <Badge variant="warning" className="ml-2">
+                          {product.featured_tag.label}
+                        </Badge>
+                      )}
+                      {product.lead_time_days > 0 && (
+                        <Badge variant="info" className="ml-2">
+                          {product.lead_time_days}d lead time
+                        </Badge>
+                      )}
+                      {product.product_handle && (
+                        <Badge variant="secondary" className="ml-2" title={`Variant of "${product.product_handle}"`}>
+                          {variantLabel}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>{product.category?.name || "—"}</TableCell>
+                    <TableCell>
+                      {product.sale_price ? (
+                        <span className="flex items-center gap-1">
+                          <span className="text-muted-foreground line-through">
+                            ${Number(product.price).toFixed(2)}
+                          </span>
+                          <span className="font-medium">
+                            ${Number(product.sale_price).toFixed(2)}
+                          </span>
                         </span>
-                        <span className="font-medium">
-                          ${Number(product.sale_price).toFixed(2)}
-                        </span>
-                      </span>
-                    ) : (
-                      `$${Number(product.price).toFixed(2)}`
-                    )}
-                  </TableCell>
-                  <TableCell>{product.stock_qty}</TableCell>
-                  <TableCell>
-                    <Badge variant={product.is_active ? "success" : "secondary"}>
-                      {product.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon" />}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setEditing(product);
-                            setFormOpen(true);
-                          }}
-                        >
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => handleDelete(product)}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+                      ) : (
+                        `$${Number(product.price).toFixed(2)}`
+                      )}
+                    </TableCell>
+                    <TableCell>{product.stock_qty}</TableCell>
+                    <TableCell>
+                      <Badge variant={product.is_active ? "success" : "secondary"}>
+                        {product.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" />}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditing(product);
+                              setFormOpen(true);
+                            }}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => handleDelete(product)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
