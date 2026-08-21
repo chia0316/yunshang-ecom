@@ -12,6 +12,7 @@ import {
   PieChart,
   Truck,
   Tag,
+  Star,
   Mail,
   Settings,
   LogOut,
@@ -45,6 +46,7 @@ const navItems = [
 const settingsItems = [
   { title: "General", url: "/settings/general", icon: Settings },
   { title: "Delivery Slots", url: "/settings/delivery-slots", icon: Truck },
+  { title: "Featured Tags", url: "/settings/featured-tags", icon: Star },
 ];
 
 export function AppSidebar() {

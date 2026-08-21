@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiFetch, getProductImageUrl, getProductVideoUrl } from "@/lib/api";
-import type { Category, Product } from "@/lib/types";
+import type { Category, Product, ProductFeaturedTag } from "@/lib/types";
 import { ImageGalleryDialog } from "./image-gallery-dialog";
 import { VideoGalleryDialog } from "./video-gallery-dialog";
 
@@ -49,7 +49,7 @@ const emptyForm = {
   dimensions: "",
   lead_time_days: "0",
   tags: "",
-  is_featured: false,
+  featured_tag_id: "none",
   is_active: true,
 };
 
@@ -63,11 +63,18 @@ export function ProductFormDialog({
   const [form, setForm] = useState(emptyForm);
   const [images, setImages] = useState<string[]>([]);
   const [video, setVideo] = useState<string | null>(null);
+  const [featuredTags, setFeaturedTags] = useState<ProductFeaturedTag[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const [videoPickerOpen, setVideoPickerOpen] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      apiFetch<ProductFeaturedTag[]>("/api/product-featured-tags").then(setFeaturedTags);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (product) {
@@ -84,7 +91,7 @@ export function ProductFormDialog({
         dimensions: product.dimensions || "",
         lead_time_days: String(product.lead_time_days ?? 0),
         tags: product.tags.join(", "),
-        is_featured: product.is_featured,
+        featured_tag_id: product.featured_tag_id ? String(product.featured_tag_id) : "none",
         is_active: product.is_active,
       });
       setImages(product.image_filenames);
@@ -164,7 +171,8 @@ export function ProductFormDialog({
           .filter(Boolean),
         image_filenames: images,
         video_filename: video,
-        is_featured: form.is_featured,
+        featured_tag_id:
+          form.featured_tag_id === "none" ? null : parseInt(form.featured_tag_id, 10),
         is_active: form.is_active,
       };
 
@@ -424,15 +432,25 @@ export function ProductFormDialog({
               product page.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="is_featured"
-              checked={form.is_featured}
-              onCheckedChange={(v) =>
-                setForm({ ...form, is_featured: v === true })
-              }
-            />
-            <Label htmlFor="is_featured">Featured</Label>
+          <div className="grid gap-2">
+            <Label htmlFor="featured_tag">Featured</Label>
+            <Select
+              value={form.featured_tag_id}
+              onValueChange={(v) => setForm({ ...form, featured_tag_id: v ?? "none" })}
+            >
+              <SelectTrigger id="featured_tag">
+                <SelectValue placeholder="Not featured" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Not featured</SelectItem>
+                {featuredTags.map((t) => (
+                  <SelectItem key={t.id} value={String(t.id)}>
+                    {t.label}
+                    {!t.is_active ? " (inactive)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center gap-2">
             <Checkbox

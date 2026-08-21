@@ -23,7 +23,7 @@ export interface Product {
   tags: string[];
   image_filenames: string[];
   video_filename: string | null;
-  is_featured: boolean;
+  featured_tag_id: number | null;
   is_active: boolean;
 }
 

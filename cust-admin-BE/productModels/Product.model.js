@@ -1,6 +1,7 @@
 const { Model, DataTypes } = require('sequelize');
 const db = require('../database/connection');
 const Category = require('./Category.model');
+const ProductFeaturedTag = require('./ProductFeaturedTag.model');
 
 class Product extends Model {}
 Product.init(
@@ -76,10 +77,12 @@ Product.init(
       allowNull: false,
       defaultValue: []
     },
-    is_featured: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: false
+    // Replaces the old is_featured boolean — see ProductFeaturedTag.model.js.
+    // The is_featured column still physically exists in the DB (unused) but
+    // is deliberately left out of this model definition.
+    featured_tag_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
     },
     is_active: {
       type: DataTypes.BOOLEAN,
@@ -102,5 +105,8 @@ Product.init(
 
 Category.hasMany(Product, { foreignKey: 'category_id' });
 Product.belongsTo(Category, { foreignKey: 'category_id' });
+
+ProductFeaturedTag.hasMany(Product, { foreignKey: 'featured_tag_id' });
+Product.belongsTo(ProductFeaturedTag, { foreignKey: 'featured_tag_id', as: 'featured_tag' });
 
 module.exports = Product;

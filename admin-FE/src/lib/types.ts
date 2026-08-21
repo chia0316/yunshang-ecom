@@ -5,6 +5,13 @@ export interface Category {
   description: string | null;
 }
 
+export interface ProductFeaturedTag {
+  id: number;
+  label: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
 export interface Product {
   id: number;
   sku: string;
@@ -23,7 +30,8 @@ export interface Product {
   tags: string[];
   image_filenames: string[];
   video_filename: string | null;
-  is_featured: boolean;
+  featured_tag_id: number | null;
+  featured_tag?: ProductFeaturedTag | null;
   is_active: boolean;
   createdAt: string;
 }

@@ -165,9 +165,9 @@ export default function ProductsPage() {
                   </TableCell>
                   <TableCell className="font-medium">
                     {product.name}
-                    {product.is_featured && (
+                    {product.featured_tag && (
                       <Badge variant="warning" className="ml-2">
-                        Featured
+                        {product.featured_tag.label}
                       </Badge>
                     )}
                     {product.lead_time_days > 0 && (

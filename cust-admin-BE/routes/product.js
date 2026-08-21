@@ -10,6 +10,7 @@ const { Op } = require('sequelize');
 
 const Product = require('../productModels/Product.model');
 const Category = require('../productModels/Category.model');
+const ProductFeaturedTag = require('../productModels/ProductFeaturedTag.model');
 const { authenticate, attachAdminFlag } = require('../utils/authenticator');
 const { multiImageUpload, videoUpload, imageUploadDir, videoUploadDir } = require('../uploads/upload');
 
@@ -38,7 +39,7 @@ const EXPECTED_COLUMNS = {
   tags: ['tags'],
   image_filenames: ['image list', 'images'],
   video_filename: ['video filename', 'video'],
-  is_featured: ['featured?', 'featured'],
+  featured_tag: ['featured?', 'featured'],
   is_active: ['active?', 'active']
 };
 
@@ -111,7 +112,7 @@ const parseWorksheet = (worksheet) => {
       tags: get('tags'),
       image_filenames: get('image_filenames'),
       video_filename: get('video_filename'),
-      is_featured: get('is_featured'),
+      featured_tag: get('featured_tag'),
       is_active: get('is_active')
     });
   }
@@ -185,7 +186,9 @@ router.get('/', attachAdminFlag, async (req, res) => {
     if (!includeInactive) where.is_active = true;
     if (category_id) where.category_id = category_id;
     if (brand) where.brand = brand;
-    if (featured !== undefined) where.is_featured = featured === 'true';
+    if (featured !== undefined) {
+      where.featured_tag_id = featured === 'true' ? { [Op.not]: null } : null;
+    }
     if (tags) where.tags = { [Op.overlap]: toList(tags) };
     if (searchText) {
       where[Op.or] = [
@@ -198,7 +201,10 @@ router.get('/', attachAdminFlag, async (req, res) => {
 
     const rows = await Product.findAndCountAll({
       where,
-      include: [{ model: Category, attributes: ['id', 'name'] }],
+      include: [
+        { model: Category, attributes: ['id', 'name'] },
+        { model: ProductFeaturedTag, as: 'featured_tag', attributes: ['id', 'label'] }
+      ],
       order: [['created_at', 'DESC']],
       offset,
       limit: page_size
@@ -219,7 +225,10 @@ router.get('/single/:pid', attachAdminFlag, async (req, res) => {
     const { pid } = req.params;
     const product = await Product.findOne({
       where: { id: pid },
-      include: [{ model: Category, attributes: ['id', 'name'] }]
+      include: [
+        { model: Category, attributes: ['id', 'name'] },
+        { model: ProductFeaturedTag, as: 'featured_tag', attributes: ['id', 'label'] }
+      ]
     });
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
@@ -254,7 +263,7 @@ router.post('/', authenticate, async (req, res) => {
       tags,
       image_filenames,
       video_filename,
-      is_featured,
+      featured_tag_id,
       is_active
     } = req.body;
 
@@ -274,7 +283,7 @@ router.post('/', authenticate, async (req, res) => {
       tags: tags || [],
       image_filenames: image_filenames || [],
       video_filename: video_filename || null,
-      is_featured: is_featured || false,
+      featured_tag_id: featured_tag_id || null,
       is_active: is_active === undefined ? true : is_active
     });
     return res.status(201).json({ message: 'Product added successfully!', product });
@@ -304,7 +313,7 @@ router.patch('/:pid', authenticate, async (req, res) => {
     'tags',
     'image_filenames',
     'video_filename',
-    'is_featured',
+    'featured_tag_id',
     'is_active'
   ];
   const updates = Object.fromEntries(
@@ -419,6 +428,12 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized request' });
   }
   try {
+    const featuredTags = await ProductFeaturedTag.findAll({
+      where: { is_active: true },
+      order: [['sort_order', 'ASC']]
+    });
+    const featuredTagLabels = featuredTags.map((t) => t.label);
+
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Products');
     sheet.columns = [
@@ -437,7 +452,7 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
       { header: 'Tags', key: 'tags', width: 20 },
       { header: 'Image List', key: 'image_filenames', width: 30 },
       { header: 'Video Filename', key: 'video_filename', width: 20 },
-      { header: 'Featured?', key: 'is_featured', width: 10 },
+      { header: 'Featured?', key: 'featured_tag', width: 14 },
       { header: 'Active?', key: 'is_active', width: 10 }
     ];
     sheet.addRow({
@@ -456,9 +471,27 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
       tags: 'sofa, living room',
       image_filenames: 'sofa-front.jpg, sofa-side.jpg',
       video_filename: '',
-      is_featured: 'No',
+      featured_tag: '',
       is_active: 'Yes'
     });
+
+    // Real Excel dropdown for the Featured column, sourced live from the
+    // configured product_featured_tags list rather than a hardcoded Yes/No —
+    // keeps the template in sync automatically as admin adds/renames tags.
+    const featuredColLetter = sheet.getColumn('featured_tag').letter;
+    if (featuredTagLabels.length > 0) {
+      const formula = `"${featuredTagLabels.join(',')}"`;
+      for (let rowNumber = 2; rowNumber <= 200; rowNumber++) {
+        sheet.getCell(`${featuredColLetter}${rowNumber}`).dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: [formula],
+          showErrorMessage: true,
+          errorTitle: 'Invalid Featured tag',
+          error: 'Please choose a value from the dropdown list, or leave blank.'
+        };
+      }
+    }
 
     const instructions = workbook.addWorksheet('Instructions');
     instructions.columns = [{ header: 'Instructions', key: 'text', width: 100 }];
@@ -468,7 +501,8 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
       'To upload new photos, ZIP them together and upload the ZIP alongside this file on the bulk-upload screen — filenames inside the ZIP must exactly match the Image List column.',
       'Supported image formats inside the ZIP: PNG, JPG, JPEG, WEBP. Other file types are skipped and reported after upload.',
       'If a referenced image still isn\'t found after upload, the product is still created/updated — add the missing photo afterward via the product form.',
-      'Video Filename: optional, a single video already uploaded via the product form (bulk video upload via ZIP is not supported).'
+      'Video Filename: optional, a single video already uploaded via the product form (bulk video upload via ZIP is not supported).',
+      `Featured?: optional, pick from the dropdown (currently: ${featuredTagLabels.length > 0 ? featuredTagLabels.join(', ') : 'no tags configured yet — set these up under Settings > Featured Tags'}). Leave blank for not featured. Values are managed in the admin Settings > Featured Tags page.`
     ].forEach((text) => instructions.addRow({ text }));
 
     res.setHeader(
@@ -544,6 +578,26 @@ router.post(
         return category.id;
       };
 
+      // Unlike resolveCategoryId, this never auto-creates — the Featured
+      // list is admin-configured, so an unrecognized value is a row error
+      // (most likely a typo or a stale tag), not a new tag to add silently.
+      const featuredTagCache = new Map();
+      const resolveFeaturedTagId = async (rawLabel) => {
+        if (!rawLabel || !String(rawLabel).trim()) return null;
+        const key = String(rawLabel).trim().toLowerCase();
+        if (featuredTagCache.has(key)) return featuredTagCache.get(key);
+        const tag = await ProductFeaturedTag.findOne({
+          where: { label: { [Op.iLike]: key } }
+        });
+        if (!tag) {
+          throw new Error(
+            `Unknown Featured value "${rawLabel}" — must match a tag configured under Settings > Featured Tags, or be left blank`
+          );
+        }
+        featuredTagCache.set(key, tag.id);
+        return tag.id;
+      };
+
       const report = [];
       for (const row of rows) {
         try {
@@ -551,6 +605,7 @@ router.post(
             throw new Error('Missing required field (Name, Category, or Price)');
           }
           const category_id = await resolveCategoryId(row.category);
+          const featured_tag_id = await resolveFeaturedTagId(row.featured_tag);
           const values = {
             sku: row.sku,
             name: row.name,
@@ -567,7 +622,7 @@ router.post(
             tags: toList(row.tags),
             image_filenames: toList(row.image_filenames),
             video_filename: row.video_filename || null,
-            is_featured: toBoolean(row.is_featured, false),
+            featured_tag_id,
             is_active: toBoolean(row.is_active, true)
           };
 
