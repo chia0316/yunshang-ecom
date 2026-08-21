@@ -23,6 +23,12 @@ const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
 const ALLOWED_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov'];
 const MAX_ZIP_ENTRY_BYTES = 15 * 1024 * 1024;
 
+// Stock isn't tracked by count in this store (furniture is made to order) —
+// a blank Stock Qty cell means "available", not "0 left", so it defaults to
+// a large in-stock number rather than accidentally marking the row out of
+// stock. Never shown to customers as a number, only used as a >0 check.
+const DEFAULT_STOCK_QTY = 999;
+
 const EXPECTED_COLUMNS = {
   product_handle: ['product handle', 'handle'],
   sku: ['sku'],
@@ -34,7 +40,6 @@ const EXPECTED_COLUMNS = {
   variant_options: ['variant options'],
   price: ['price (sgd)', 'price'],
   sale_price: ['sale price (sgd)', 'sale price'],
-  stock_qty: ['stock qty', 'stock quantity'],
   weight_kg: ['weight (kg)', 'weight'],
   dimensions: ['dimensions', 'measurements', 'size'],
   lead_time_days: ['lead time (days)', 'lead time'],
@@ -153,7 +158,6 @@ const parseWorksheet = (worksheet) => {
       variant_options: get('variant_options'),
       price: get('price'),
       sale_price: get('sale_price'),
-      stock_qty: get('stock_qty'),
       weight_kg: get('weight_kg'),
       dimensions: get('dimensions'),
       lead_time_days: get('lead_time_days'),
@@ -389,7 +393,6 @@ router.post('/', authenticate, async (req, res) => {
       description,
       price,
       sale_price,
-      stock_qty,
       weight_kg,
       dimensions,
       lead_time_days,
@@ -411,7 +414,9 @@ router.post('/', authenticate, async (req, res) => {
       description,
       price,
       sale_price: sale_price || null,
-      stock_qty: stock_qty || 0,
+      // Stock isn't captured anywhere (form or Excel) — this store doesn't
+      // track count, so every product is simply available by default.
+      stock_qty: DEFAULT_STOCK_QTY,
       weight_kg: weight_kg || null,
       dimensions: dimensions || null,
       lead_time_days: lead_time_days || 0,
@@ -443,7 +448,6 @@ router.patch('/:pid', authenticate, async (req, res) => {
     'description',
     'price',
     'sale_price',
-    'stock_qty',
     'weight_kg',
     'dimensions',
     'lead_time_days',
@@ -637,7 +641,6 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
       { header: 'Variant Options', key: 'variant_options', width: 24 },
       { header: 'Price (SGD)', key: 'price', width: 12 },
       { header: 'Sale Price (SGD)', key: 'sale_price', width: 14 },
-      { header: 'Stock Qty', key: 'stock_qty', width: 10 },
       { header: 'Weight (kg)', key: 'weight_kg', width: 12 },
       { header: 'Dimensions', key: 'dimensions', width: 20 },
       { header: 'Lead Time (Days)', key: 'lead_time_days', width: 14 },
@@ -658,7 +661,6 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
       variant_options: '',
       price: 899,
       sale_price: '',
-      stock_qty: 10,
       weight_kg: 45.5,
       dimensions: '210 x 90 x 85 cm',
       lead_time_days: 0,
@@ -683,7 +685,6 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
       variant_options: 'Material: Fabric',
       price: 1899,
       sale_price: '',
-      stock_qty: 5,
       weight_kg: 60,
       dimensions: '280 x 180 x 85 cm',
       lead_time_days: 0,
@@ -752,7 +753,7 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
       'Fill in the Products sheet — one row per SKU (one variant). Existing SKUs are updated, new SKUs are created.',
       'Category must match an existing category name exactly (not case-sensitive) — it will NOT be created automatically. Check the Categories page for the exact spelling, or add a new category there first if you need one that doesn\'t exist yet.',
       'Product Handle: leave blank for a normal, single-SKU product (most rows). Fill it in only when a product has multiple variants (e.g. Material/Color options) — every row sharing the same Product Handle is treated as one product.',
-      'For a multi-variant product: put the shared product-level fields (Name, Category, Brand, Short/Full Description, Tags, Image List, Video Filename, Featured?, Active?) on the FIRST row of the group only — leave them blank on the other rows, they\'ll inherit automatically. SKU, Variant Options, Price, Sale Price, Stock Qty, Weight, and Dimensions are per-row (every variant has its own).',
+      'For a multi-variant product: put the shared product-level fields (Name, Category, Brand, Short/Full Description, Tags, Image List, Video Filename, Featured?, Active?) on the FIRST row of the group only — leave them blank on the other rows, they\'ll inherit automatically. SKU, Variant Options, Price, Sale Price, Weight, and Dimensions are per-row (every variant has its own).',
       'Variant Options: this row\'s specific combination, as "Name: Value" pairs separated by semicolons, e.g. "Material: Leather; Color: Black". A single value with no "Name:" prefix (e.g. just "Leather") also works.',
       'See the worked example in this template: "Example L-Shape Sofa" spans 3 rows, one per Material option, each with its own SKU/price/image but sharing the product-level fields from the first row.',
       'Image List: comma-separated filenames, e.g. "sofa-front.jpg, sofa-side.jpg". On a variant row, leaving this blank inherits the group\'s images from the first row — fill it in only if this specific variant needs different photos.',
@@ -917,7 +918,9 @@ router.post(
             description: row.description || null,
             price: parseFloat(row.price),
             sale_price: row.sale_price ? parseFloat(row.sale_price) : null,
-            stock_qty: row.stock_qty ? parseInt(row.stock_qty, 10) : 0,
+            // Not captured in the sheet — this store doesn't track stock
+            // count, so every uploaded product is simply available.
+            stock_qty: DEFAULT_STOCK_QTY,
             weight_kg: row.weight_kg ? parseFloat(row.weight_kg) : null,
             dimensions: row.dimensions || null,
             lead_time_days: row.lead_time_days ? parseInt(row.lead_time_days, 10) : 0,

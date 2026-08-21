@@ -252,7 +252,6 @@ export default function ProductsPage() {
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Price</TableHead>
-              <TableHead>Stock</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-10" />
             </TableRow>
@@ -260,13 +259,13 @@ export default function ProductsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : products.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   No products found.
                 </TableCell>
               </TableRow>
@@ -343,7 +342,6 @@ export default function ProductsPage() {
                         `$${Number(product.price).toFixed(2)}`
                       )}
                     </TableCell>
-                    <TableCell>{product.stock_qty}</TableCell>
                     <TableCell>
                       <Badge variant={product.is_active ? "success" : "secondary"}>
                         {product.is_active ? "Active" : "Inactive"}

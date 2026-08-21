@@ -45,7 +45,6 @@ const emptyForm = {
   description: "",
   price: "",
   sale_price: "",
-  stock_qty: "0",
   dimensions: "",
   lead_time_days: "0",
   tags: "",
@@ -119,7 +118,6 @@ export function ProductFormDialog({
         description: product.description || "",
         price: product.price,
         sale_price: product.sale_price || "",
-        stock_qty: String(product.stock_qty),
         dimensions: product.dimensions || "",
         lead_time_days: String(product.lead_time_days ?? 0),
         tags: product.tags.join(", "),
@@ -196,7 +194,6 @@ export function ProductFormDialog({
         description: form.description || null,
         price: parseFloat(form.price),
         sale_price: form.sale_price ? parseFloat(form.sale_price) : null,
-        stock_qty: parseInt(form.stock_qty || "0", 10),
         dimensions: form.dimensions || null,
         lead_time_days: parseInt(form.lead_time_days || "0", 10),
         tags: form.tags
@@ -356,17 +353,6 @@ export function ProductFormDialog({
               value={form.sale_price}
               onChange={(e) =>
                 setForm({ ...form, sale_price: e.target.value })
-              }
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="stock_qty">Stock Qty</Label>
-            <Input
-              id="stock_qty"
-              type="number"
-              value={form.stock_qty}
-              onChange={(e) =>
-                setForm({ ...form, stock_qty: e.target.value })
               }
             />
           </div>
