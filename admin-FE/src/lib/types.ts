@@ -256,3 +256,25 @@ export interface SalesReport {
     revenue: number;
   }[];
 }
+
+export interface DashboardAnalytics {
+  newLogins: number;
+  totalCustomers: number;
+  newCustomers30d: number;
+  totalOrders: number;
+  totalRevenue: number;
+  orderStatusBreakdown: Record<OrderStatus, number>;
+  activeProducts: number;
+  lowStockProducts: { id: number; sku: string; name: string; stock_qty: number }[];
+  activeCoupons: number;
+  couponRedemptions: number;
+  topCoupon: { code: string; usedCount: number } | null;
+  enquiryStatusBreakdown: Record<EnquiryStatus, number>;
+  recentEnquiries: number;
+  categoryBreakdown: {
+    categoryId: number;
+    categoryName: string;
+    productCount: number;
+    revenue30d: number;
+  }[];
+}
