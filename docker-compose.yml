@@ -41,7 +41,7 @@ services:
       COMPANY_UEN: ${COMPANY_UEN}
       GST_ENABLED: ${GST_ENABLED}
       GST_RATE: ${GST_RATE}
-      STOREFRONT_URL: http://${DROPLET_IP}
+      STOREFRONT_URL: https://${DOMAIN}
     ports:
       - "8090:8090"
     volumes:
@@ -68,10 +68,40 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    expose:
+      - "80"
+
+  # Reverse proxy in front of cust-fe only — serves the real domain over
+  # HTTPS, and plain HTTP for droplet-IP testing. Never proxies to backend
+  # or admin-fe; those stay reachable by IP:port directly (see below), and
+  # get their own domain routing later.
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - cust-fe
+    environment:
+      DOMAIN: ${DOMAIN}
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - certbot_etc:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+
+  # Not a long-running service — invoked on demand via
+  # `docker compose run --rm certbot ...` by init-letsencrypt.sh (first
+  # issuance) and renew-cert.sh (renewal cron). See DEPLOY.md.
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_etc:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
 
 volumes:
   pgdata:
   backend_images:
   backend_videos:
+  certbot_etc:
+  certbot_www:
