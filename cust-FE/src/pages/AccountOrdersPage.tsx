@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Check, MapPin, Package, CreditCard, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useCart } from '../context/CartContext';
+import { useCart, withVariantLabel } from '../context/CartContext';
 import { apiFetch, getProductImageUrl } from '../lib/api';
 import type { Order, OrderStatus } from '../lib/types';
 import AccountNav from '../components/AccountNav';
@@ -90,7 +90,9 @@ const AccountOrdersPage: React.FC = () => {
       for (let i = 0; i < item.quantity; i++) {
         addToCart({
           id: item.product_id,
-          name: item.product?.name || `Product #${item.product_id}`,
+          name: item.product
+            ? withVariantLabel(item.product.name, item.product.variant_options)
+            : `Product #${item.product_id}`,
           price: Number(item.price),
           image: getProductImageUrl(item.product?.image_filenames?.[0]),
           leadTimeDays: 0,
@@ -147,7 +149,9 @@ const AccountOrdersPage: React.FC = () => {
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 truncate">
-                        {item.product?.name || `Product #${item.product_id}`}
+                        {item.product
+                          ? withVariantLabel(item.product.name, item.product.variant_options)
+                          : `Product #${item.product_id}`}
                       </p>
                       {item.product?.sku && (
                         <p className="text-xs text-gray-500">SKU: {item.product.sku}</p>

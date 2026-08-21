@@ -17,6 +17,15 @@ const { authenticate } = require('../utils/authenticator');
 const { getCompanySettings } = require('../utils/companySettings');
 const { resolveCoupon } = require('../utils/coupons');
 
+// "Sofa - 5279 L Shape" + { Material: "Solana" } -> "Sofa - 5279 L Shape — Solana"
+// Mirrors withVariantLabel in cust-FE/src/context/CartContext.tsx — used
+// here because the Excel export builds cell text directly on the server,
+// with no frontend formatting step in between.
+const withVariantLabel = (name, variantOptions) => {
+  if (!variantOptions || Object.keys(variantOptions).length === 0) return name;
+  return `${name} — ${Object.values(variantOptions).join(', ')}`;
+};
+
 // Shared by the order list and the Excel export — same status/search/date
 // filters should apply to both.
 const buildOrderFilters = ({ status, search, from, to }) => {
@@ -108,7 +117,7 @@ router.get('/export', authenticate, async (req, res) => {
         {
           model: OrderDetail,
           required: false,
-          include: [{ model: Product, attributes: ['sku', 'name'] }]
+          include: [{ model: Product, attributes: ['sku', 'name', 'variant_options'] }]
         }
       ],
       order: [['created_at', 'DESC']]
@@ -163,7 +172,7 @@ router.get('/export', authenticate, async (req, res) => {
         itemsSheet.addRow({
           orderId: order.id,
           sku: item.product?.sku || '',
-          name: item.product?.name || '',
+          name: item.product ? withVariantLabel(item.product.name, item.product.variant_options) : '',
           quantity: item.quantity,
           price: Number(item.price),
           lineTotal: Number(item.price) * item.quantity
@@ -199,7 +208,7 @@ router.get('/user/:uid', authenticate, async (req, res) => {
         {
           model: OrderDetail,
           required: false,
-          include: [{ model: Product, attributes: ['sku', 'name', 'price', 'image_filenames'] }]
+          include: [{ model: Product, attributes: ['sku', 'name', 'price', 'image_filenames', 'variant_options'] }]
         }
       ]
     });
@@ -252,7 +261,7 @@ router.get('/:oid/document', authenticate, async (req, res) => {
         { model: User, attributes: ['firstName', 'lastName', 'email', 'mobile'] },
         {
           model: OrderDetail,
-          include: [{ model: Product, attributes: ['sku', 'name', 'price'] }]
+          include: [{ model: Product, attributes: ['sku', 'name', 'price', 'variant_options'] }]
         }
       ]
     });

@@ -104,12 +104,24 @@ interface ServerCartRow {
     sale_price: string | null;
     image_filenames: string[];
     lead_time_days: number;
+    variant_options: Record<string, string> | null;
   };
 }
 
+// Appends the variant's distinguishing detail to the product name (e.g.
+// "Sofa - 5279 L Shape — Solana") so cart/order line items don't show
+// identical names for different variants of the same product.
+export const withVariantLabel = (
+  name: string,
+  variantOptions: Record<string, string> | null | undefined
+) => {
+  if (!variantOptions || Object.keys(variantOptions).length === 0) return name;
+  return `${name} — ${Object.values(variantOptions).join(', ')}`;
+};
+
 const toCartItem = (row: ServerCartRow): CartItem => ({
   id: row.product.id,
-  name: row.product.name,
+  name: withVariantLabel(row.product.name, row.product.variant_options),
   price: row.product.sale_price ? Number(row.product.sale_price) : Number(row.product.price),
   image: getProductImageUrl(row.product.image_filenames[0]),
   quantity: row.quantity,

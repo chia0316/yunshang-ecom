@@ -84,6 +84,19 @@ Product.init(
       type: DataTypes.INTEGER,
       allowNull: true
     },
+    // Rows sharing the same product_handle are variants of one logical
+    // product (e.g. Material: Leather vs Fabric on the same sofa). Null
+    // means this product has no variants — a standalone SKU.
+    product_handle: {
+      type: DataTypes.STRING(200),
+      allowNull: true
+    },
+    // This row's specific option combo, e.g. { "Material": "Leather",
+    // "Color": "Black" }. Null/empty for non-variant products.
+    variant_options: {
+      type: DataTypes.JSONB,
+      allowNull: true
+    },
     is_active: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

@@ -32,8 +32,27 @@ export interface Product {
   video_filename: string | null;
   featured_tag_id: number | null;
   featured_tag?: ProductFeaturedTag | null;
+  product_handle: string | null;
+  variant_options: Record<string, string> | null;
   is_active: boolean;
   createdAt: string;
+  // Only present when fetched via ?grouped=true (storefront listing) —
+  // absent everywhere else, including the admin product list.
+  variant_count?: number;
+  min_price?: number;
+  max_price?: number;
+}
+
+// Sibling-variant summary returned alongside a product's detail fetch —
+// see ProductVariant below vs. the full Product interface.
+export interface ProductVariant {
+  id: number;
+  sku: string;
+  price: string;
+  sale_price: string | null;
+  stock_qty: number;
+  variant_options: Record<string, string> | null;
+  image_filenames: string[];
 }
 
 export interface User {
@@ -57,7 +76,7 @@ export interface OrderDetailItem {
   product_id: number;
   quantity: number;
   price: string;
-  product?: Pick<Product, "name" | "price" | "sku" | "image_filenames">;
+  product?: Pick<Product, "name" | "price" | "sku" | "image_filenames" | "variant_options">;
 }
 
 export type OrderStatus =

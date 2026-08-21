@@ -6,6 +6,7 @@ import { Printer, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api";
+import { withVariantLabel } from "@/lib/utils";
 import type { OrderDocument } from "@/lib/types";
 
 const money = (value: string | number) => `$${Number(value).toFixed(2)}`;
@@ -131,7 +132,11 @@ export default function OrderDocumentPage({
             {items.map((item) => (
               <tr key={item.id} className="border-b border-gray-300">
                 <td className="py-2">{item.product?.sku}</td>
-                <td className="py-2">{item.product?.name}</td>
+                <td className="py-2">
+                  {item.product
+                    ? withVariantLabel(item.product.name, item.product.variant_options)
+                    : ""}
+                </td>
                 <td className="py-2 text-right">{item.quantity}</td>
                 <td className="py-2 text-right">{money(item.price)}</td>
                 <td className="py-2 text-right">{money(Number(item.price) * item.quantity)}</td>

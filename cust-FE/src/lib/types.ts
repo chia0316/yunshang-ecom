@@ -24,7 +24,28 @@ export interface Product {
   image_filenames: string[];
   video_filename: string | null;
   featured_tag_id: number | null;
+  product_handle: string | null;
+  variant_options: Record<string, string> | null;
   is_active: boolean;
+  // Only present when fetched via ?grouped=true (product listing pages).
+  variant_count?: number;
+  min_price?: number;
+  max_price?: number;
+  // Only present on the single-product detail fetch — sibling variants
+  // (including this one) sharing the same product_handle.
+  variants?: ProductVariant[];
+}
+
+// Sibling variant, returned in Product.variants from the single-product
+// fetch — powers the variant switcher on the product detail page.
+export interface ProductVariant {
+  id: number;
+  sku: string;
+  price: string;
+  sale_price: string | null;
+  stock_qty: number;
+  variant_options: Record<string, string> | null;
+  image_filenames: string[];
 }
 
 export interface OrderDetailItem {
@@ -32,7 +53,7 @@ export interface OrderDetailItem {
   product_id: number;
   quantity: number;
   price: string;
-  product?: Pick<Product, 'name' | 'price' | 'sku' | 'image_filenames'>;
+  product?: Pick<Product, 'name' | 'price' | 'sku' | 'image_filenames' | 'variant_options'>;
 }
 
 export interface AvailableCoupon {

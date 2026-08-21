@@ -50,7 +50,39 @@ const emptyForm = {
   lead_time_days: "0",
   tags: "",
   featured_tag_id: "none",
+  product_handle: "",
+  variant_options: "",
   is_active: true,
+};
+
+// "Material: Leather; Color: Black" <-> { Material: "Leather", Color: "Black" }
+// Mirrors the bulk-upload parser (routes/product.js) so the same text works
+// in both places. A bare value with no "Name:" prefix becomes { Option: value }.
+const parseVariantOptionsText = (raw: string): Record<string, string> | null => {
+  if (!raw.trim()) return null;
+  const result: Record<string, string> = {};
+  raw
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .forEach((pair) => {
+      const colonIndex = pair.indexOf(":");
+      if (colonIndex === -1) {
+        result.Option = pair;
+      } else {
+        const key = pair.slice(0, colonIndex).trim();
+        const value = pair.slice(colonIndex + 1).trim();
+        if (key && value) result[key] = value;
+      }
+    });
+  return Object.keys(result).length > 0 ? result : null;
+};
+
+const stringifyVariantOptions = (options: Record<string, string> | null): string => {
+  if (!options) return "";
+  return Object.entries(options)
+    .map(([key, value]) => (key === "Option" ? value : `${key}: ${value}`))
+    .join("; ");
 };
 
 export function ProductFormDialog({
@@ -92,6 +124,8 @@ export function ProductFormDialog({
         lead_time_days: String(product.lead_time_days ?? 0),
         tags: product.tags.join(", "),
         featured_tag_id: product.featured_tag_id ? String(product.featured_tag_id) : "none",
+        product_handle: product.product_handle || "",
+        variant_options: stringifyVariantOptions(product.variant_options),
         is_active: product.is_active,
       });
       setImages(product.image_filenames);
@@ -173,6 +207,8 @@ export function ProductFormDialog({
         video_filename: video,
         featured_tag_id:
           form.featured_tag_id === "none" ? null : parseInt(form.featured_tag_id, 10),
+        product_handle: form.product_handle.trim() || null,
+        variant_options: parseVariantOptionsText(form.variant_options),
         is_active: form.is_active,
       };
 
@@ -224,6 +260,33 @@ export function ProductFormDialog({
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="product_handle">Product Handle</Label>
+            <Input
+              id="product_handle"
+              placeholder="Leave blank unless this product has variants"
+              value={form.product_handle}
+              onChange={(e) => setForm({ ...form, product_handle: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Products sharing the same handle are variants of one product
+              (e.g. different Material/Color options).
+            </p>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="variant_options">Variant Options</Label>
+            <Input
+              id="variant_options"
+              placeholder='e.g. "Material: Leather; Color: Black"'
+              value={form.variant_options}
+              onChange={(e) => setForm({ ...form, variant_options: e.target.value })}
+              disabled={!form.product_handle.trim()}
+            />
+            <p className="text-xs text-muted-foreground">
+              This SKU&apos;s specific combination — only used when a Product
+              Handle is set above.
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="brand">Brand</Label>

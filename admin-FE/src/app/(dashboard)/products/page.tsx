@@ -175,6 +175,13 @@ export default function ProductsPage() {
                         {product.lead_time_days}d lead time
                       </Badge>
                     )}
+                    {product.product_handle && (
+                      <Badge variant="secondary" className="ml-2" title={`Variant of "${product.product_handle}"`}>
+                        {product.variant_options
+                          ? Object.values(product.variant_options).join(", ")
+                          : "Variant"}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>{product.category?.name || "—"}</TableCell>
                   <TableCell>

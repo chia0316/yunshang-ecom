@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Heart, Share, Minus, Plus, ShoppingCart, Truck, Shield, Play } from 'lucide-react';
 import { apiFetch, getProductImageUrl, getProductVideoUrl } from '../lib/api';
-import { useCart } from '../context/CartContext';
+import { useCart, withVariantLabel } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import type { Product } from '../lib/types';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { addToCart } = useCart();
   const { isWishlisted, toggleWishlist } = useWishlist();
   const [product, setProduct] = useState<Product | null>(null);
@@ -19,6 +20,7 @@ const ProductDetailPage: React.FC = () => {
   useEffect(() => {
     setLoading(true);
     setSelectedImage(0);
+    setQuantity(1);
     apiFetch<Product>(`/api/products/single/${id}`, { auth: false })
       .then(setProduct)
       .catch(() => setProduct(null))
@@ -53,11 +55,28 @@ const ProductDetailPage: React.FC = () => {
   ];
   const inStock = product.stock_qty > 0;
 
+  // Sibling variants (including this one) — powers the switcher below.
+  // Each option axis (e.g. "Material") lists its distinct values, each
+  // pointing at whichever sibling variant has that value; picking one
+  // navigates to that variant's own product page.
+  const variants = product.variants && product.variants.length > 1 ? product.variants : [];
+  const optionAxes = Array.from(
+    new Set(variants.flatMap((v) => (v.variant_options ? Object.keys(v.variant_options) : [])))
+  );
+  const axisOptions = (axis: string) => {
+    const seen = new Map<string, number>();
+    variants.forEach((v) => {
+      const value = v.variant_options?.[axis];
+      if (value && !seen.has(value)) seen.set(value, v.id);
+    });
+    return Array.from(seen.entries());
+  };
+
   const handleAddToCart = () => {
     for (let i = 0; i < quantity; i++) {
       addToCart({
         id: product.id,
-        name: product.name,
+        name: withVariantLabel(product.name, product.variant_options),
         price: effectivePrice,
         image: getProductImageUrl(product.image_filenames[0]),
         leadTimeDays: product.lead_time_days,
@@ -152,6 +171,37 @@ const ProductDetailPage: React.FC = () => {
               )}
             </div>
           </div>
+
+          {optionAxes.length > 0 && (
+            <div className="space-y-4">
+              {optionAxes.map((axis) => (
+                <div key={axis}>
+                  <h3 className="font-semibold text-gray-900 mb-2">
+                    {axis === 'Option' ? 'Choose an option' : axis}
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {axisOptions(axis).map(([value, variantId]) => {
+                      const isCurrent = product.variant_options?.[axis] === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => !isCurrent && navigate(`/product/${variantId}`)}
+                          className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                            isCurrent
+                              ? 'border-stone-900 bg-stone-900 text-white'
+                              : 'border-gray-200 text-gray-700 hover:border-stone-900'
+                          }`}
+                        >
+                          {value}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <p className="text-gray-600 leading-relaxed">{product.description}</p>
 

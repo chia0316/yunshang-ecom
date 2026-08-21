@@ -54,7 +54,7 @@ const ProductListingPage: React.FC = () => {
 
   useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams({ page_size: '100' });
+    const params = new URLSearchParams({ page_size: '100', grouped: 'true' });
     if (categoryId) params.set('category_id', categoryId);
     if (searchText) params.set('searchText', searchText);
 
@@ -65,6 +65,9 @@ const ProductListingPage: React.FC = () => {
 
   const effectivePrice = (product: Product) =>
     product.sale_price ? Number(product.sale_price) : Number(product.price);
+
+  const hasMultipleVariants = (product: Product) =>
+    (product.variant_count || 0) > 1 && product.min_price !== product.max_price;
 
   const filteredProducts = products
     .slice()
@@ -236,13 +239,21 @@ const ProductListingPage: React.FC = () => {
                       )}
 
                       <div className="flex items-center mb-4">
-                        <span className="text-2xl font-bold text-gray-900">
-                          ${effectivePrice(product).toFixed(2)}
-                        </span>
-                        {product.sale_price && (
-                          <span className="ml-2 text-lg text-gray-500 line-through">
-                            ${Number(product.price).toFixed(2)}
+                        {hasMultipleVariants(product) ? (
+                          <span className="text-2xl font-bold text-gray-900">
+                            From ${Number(product.min_price).toFixed(2)}
                           </span>
+                        ) : (
+                          <>
+                            <span className="text-2xl font-bold text-gray-900">
+                              ${effectivePrice(product).toFixed(2)}
+                            </span>
+                            {product.sale_price && (
+                              <span className="ml-2 text-lg text-gray-500 line-through">
+                                ${Number(product.price).toFixed(2)}
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
 

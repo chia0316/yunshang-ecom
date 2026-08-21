@@ -24,12 +24,14 @@ const ALLOWED_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov'];
 const MAX_ZIP_ENTRY_BYTES = 15 * 1024 * 1024;
 
 const EXPECTED_COLUMNS = {
+  product_handle: ['product handle', 'handle'],
   sku: ['sku'],
   name: ['name'],
   category: ['category'],
   brand: ['brand'],
   short_description: ['short description'],
   description: ['full description'],
+  variant_options: ['variant options'],
   price: ['price (sgd)', 'price'],
   sale_price: ['sale price (sgd)', 'sale price'],
   stock_qty: ['stock qty', 'stock quantity'],
@@ -41,6 +43,30 @@ const EXPECTED_COLUMNS = {
   video_filename: ['video filename', 'video'],
   featured_tag: ['featured?', 'featured'],
   is_active: ['active?', 'active']
+};
+
+// "Material: Leather; Color: Black" -> { Material: 'Leather', Color: 'Black' }.
+// A bare value with no "Name:" prefix (e.g. just "Vancouver") is treated as
+// a single unnamed option rather than rejected, since that's how simpler
+// single-axis variant sheets tend to get filled in.
+const parseVariantOptions = (raw) => {
+  if (!raw || !String(raw).trim()) return null;
+  const result = {};
+  String(raw)
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .forEach((pair) => {
+      const colonIndex = pair.indexOf(':');
+      if (colonIndex === -1) {
+        result.Option = pair;
+      } else {
+        const key = pair.slice(0, colonIndex).trim();
+        const value = pair.slice(colonIndex + 1).trim();
+        if (key && value) result[key] = value;
+      }
+    });
+  return Object.keys(result).length > 0 ? result : null;
 };
 
 const toBoolean = (value, defaultValue) => {
@@ -97,12 +123,14 @@ const parseWorksheet = (worksheet) => {
 
     rows.push({
       rowNumber,
+      product_handle: get('product_handle'),
       sku: String(sku).trim(),
       name: get('name'),
       category: get('category'),
       brand: get('brand'),
       short_description: get('short_description'),
       description: get('description'),
+      variant_options: get('variant_options'),
       price: get('price'),
       sale_price: get('sale_price'),
       stock_qty: get('stock_qty'),
@@ -181,6 +209,7 @@ router.get('/', attachAdminFlag, async (req, res) => {
     const page_size = parseInt(req.query.page_size) || 12;
     const offset = (page - 1) * page_size;
     const includeInactive = req.isAdmin && req.query.includeInactive === 'true';
+    const grouped = req.query.grouped === 'true';
 
     const where = {};
     if (!includeInactive) where.is_active = true;
@@ -199,21 +228,82 @@ router.get('/', attachAdminFlag, async (req, res) => {
       ];
     }
 
-    const rows = await Product.findAndCountAll({
+    if (!grouped) {
+      const rows = await Product.findAndCountAll({
+        where,
+        include: [
+          { model: Category, attributes: ['id', 'name'] },
+          { model: ProductFeaturedTag, as: 'featured_tag', attributes: ['id', 'label'] }
+        ],
+        order: [['created_at', 'DESC']],
+        offset,
+        limit: page_size
+      });
+
+      return res.json({
+        total_pages: Math.ceil(rows.count / page_size),
+        total: rows.count,
+        data: rows.rows
+      });
+    }
+
+    // Storefront listing/category pages: variant rows sharing a
+    // product_handle collapse into one card. Groups (not rows) are what
+    // gets paginated, so this fetches every matching row's lightweight
+    // fields first, groups+paginates in JS, then loads full data only for
+    // the page's representative rows. Fine at this catalog's size — would
+    // need a real SQL DISTINCT ON if the catalog grew into the thousands.
+    const candidates = await Product.findAll({
       where,
+      attributes: ['id', 'product_handle', 'price', 'createdAt'],
+      order: [['createdAt', 'DESC']]
+    });
+
+    const groups = new Map();
+    for (const row of candidates) {
+      const key = row.product_handle || `__standalone_${row.id}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
+    }
+
+    const groupSummaries = Array.from(groups.values()).map((members) => {
+      const prices = members.map((m) => parseFloat(m.price));
+      const representative = members.reduce((lowest, m) =>
+        parseFloat(m.price) < parseFloat(lowest.price) ? m : lowest
+      );
+      return {
+        representativeId: representative.id,
+        createdAt: representative.createdAt,
+        variantCount: members.length,
+        minPrice: Math.min(...prices),
+        maxPrice: Math.max(...prices)
+      };
+    });
+    groupSummaries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    const total = groupSummaries.length;
+    const pageSummaries = groupSummaries.slice(offset, offset + page_size);
+
+    const products = await Product.findAll({
+      where: { id: { [Op.in]: pageSummaries.map((s) => s.representativeId) } },
       include: [
         { model: Category, attributes: ['id', 'name'] },
         { model: ProductFeaturedTag, as: 'featured_tag', attributes: ['id', 'label'] }
-      ],
-      order: [['created_at', 'DESC']],
-      offset,
-      limit: page_size
+      ]
     });
+    const productsById = new Map(products.map((p) => [p.id, p]));
+
+    const data = pageSummaries.map((s) => ({
+      ...productsById.get(s.representativeId).toJSON(),
+      variant_count: s.variantCount,
+      min_price: s.minPrice,
+      max_price: s.maxPrice
+    }));
 
     return res.json({
-      total_pages: Math.ceil(rows.count / page_size),
-      total: rows.count,
-      data: rows.rows
+      total_pages: Math.ceil(total / page_size),
+      total,
+      data
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -236,7 +326,22 @@ router.get('/single/:pid', attachAdminFlag, async (req, res) => {
     if (!product.is_active && !req.isAdmin) {
       return res.status(404).json({ error: 'Product not found' });
     }
-    return res.json(product);
+
+    // Sibling variants (including this one) power the variant switcher on
+    // the product page — empty array for a standalone (non-variant) product.
+    let variants = [];
+    if (product.product_handle) {
+      variants = await Product.findAll({
+        where: {
+          product_handle: product.product_handle,
+          ...(req.isAdmin ? {} : { is_active: true })
+        },
+        attributes: ['id', 'sku', 'price', 'sale_price', 'stock_qty', 'variant_options', 'image_filenames'],
+        order: [['price', 'ASC']]
+      });
+    }
+
+    return res.json({ ...product.toJSON(), variants });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -264,6 +369,8 @@ router.post('/', authenticate, async (req, res) => {
       image_filenames,
       video_filename,
       featured_tag_id,
+      product_handle,
+      variant_options,
       is_active
     } = req.body;
 
@@ -284,6 +391,8 @@ router.post('/', authenticate, async (req, res) => {
       image_filenames: image_filenames || [],
       video_filename: video_filename || null,
       featured_tag_id: featured_tag_id || null,
+      product_handle: product_handle || null,
+      variant_options: variant_options || null,
       is_active: is_active === undefined ? true : is_active
     });
     return res.status(201).json({ message: 'Product added successfully!', product });
@@ -314,6 +423,8 @@ router.patch('/:pid', authenticate, async (req, res) => {
     'image_filenames',
     'video_filename',
     'featured_tag_id',
+    'product_handle',
+    'variant_options',
     'is_active'
   ];
   const updates = Object.fromEntries(
@@ -437,12 +548,14 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Products');
     sheet.columns = [
+      { header: 'Product Handle', key: 'product_handle', width: 22 },
       { header: 'SKU', key: 'sku', width: 18 },
       { header: 'Name', key: 'name', width: 30 },
       { header: 'Category', key: 'category', width: 18 },
       { header: 'Brand', key: 'brand', width: 16 },
       { header: 'Short Description', key: 'short_description', width: 30 },
       { header: 'Full Description', key: 'description', width: 40 },
+      { header: 'Variant Options', key: 'variant_options', width: 24 },
       { header: 'Price (SGD)', key: 'price', width: 12 },
       { header: 'Sale Price (SGD)', key: 'sale_price', width: 14 },
       { header: 'Stock Qty', key: 'stock_qty', width: 10 },
@@ -456,12 +569,14 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
       { header: 'Active?', key: 'is_active', width: 10 }
     ];
     sheet.addRow({
+      product_handle: '',
       sku: 'SOFA-001',
       name: 'Example 3-Seater Sofa',
       category: 'Sofas',
       brand: 'Casa Yun',
       short_description: 'A comfortable 3-seater sofa',
       description: 'Full product description goes here.',
+      variant_options: '',
       price: 899,
       sale_price: '',
       stock_qty: 10,
@@ -473,6 +588,47 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
       video_filename: '',
       featured_tag: '',
       is_active: 'Yes'
+    });
+
+    // Worked variant example: 3 rows, one product ("Example L-Shape Sofa")
+    // with 3 material variants. Only the first row of the group carries the
+    // product-level fields — the other two leave them blank to inherit.
+    sheet.addRow({
+      product_handle: 'Example L-Shape Sofa',
+      sku: 'SOFA-002-FAB',
+      name: 'Example L-Shape Sofa',
+      category: 'Sofas',
+      brand: 'Casa Yun',
+      short_description: 'L-shape sofa available in three materials.',
+      description: 'Full product description goes here.',
+      variant_options: 'Material: Fabric',
+      price: 1899,
+      sale_price: '',
+      stock_qty: 5,
+      weight_kg: 60,
+      dimensions: '280 x 180 x 85 cm',
+      lead_time_days: 0,
+      tags: 'sofa, living room',
+      image_filenames: 'sofa-lshape-fabric.jpg',
+      video_filename: '',
+      featured_tag: '',
+      is_active: 'Yes'
+    });
+    sheet.addRow({
+      product_handle: 'Example L-Shape Sofa',
+      sku: 'SOFA-002-LEA',
+      variant_options: 'Material: Leather',
+      price: 2499,
+      dimensions: '280 x 180 x 85 cm',
+      image_filenames: 'sofa-lshape-leather.jpg'
+    });
+    sheet.addRow({
+      product_handle: 'Example L-Shape Sofa',
+      sku: 'SOFA-002-PRM',
+      variant_options: 'Material: Premium Leather',
+      price: 3199,
+      dimensions: '280 x 180 x 85 cm',
+      image_filenames: 'sofa-lshape-premium.jpg'
     });
 
     // Real Excel dropdown for the Featured column, sourced live from the
@@ -496,8 +652,12 @@ router.get('/bulk-upload/template', authenticate, async (req, res) => {
     const instructions = workbook.addWorksheet('Instructions');
     instructions.columns = [{ header: 'Instructions', key: 'text', width: 100 }];
     [
-      'Fill in the Products sheet — one row per product. Existing SKUs are updated, new SKUs are created.',
-      'Image List: comma-separated filenames, e.g. "sofa-front.jpg, sofa-side.jpg".',
+      'Fill in the Products sheet — one row per SKU (one variant). Existing SKUs are updated, new SKUs are created.',
+      'Product Handle: leave blank for a normal, single-SKU product (most rows). Fill it in only when a product has multiple variants (e.g. Material/Color options) — every row sharing the same Product Handle is treated as one product.',
+      'For a multi-variant product: put the shared product-level fields (Name, Category, Brand, Short/Full Description, Tags, Image List, Video Filename, Featured?, Active?) on the FIRST row of the group only — leave them blank on the other rows, they\'ll inherit automatically. SKU, Variant Options, Price, Sale Price, Stock Qty, Weight, and Dimensions are per-row (every variant has its own).',
+      'Variant Options: this row\'s specific combination, as "Name: Value" pairs separated by semicolons, e.g. "Material: Leather; Color: Black". A single value with no "Name:" prefix (e.g. just "Leather") also works.',
+      'See the worked example in this template: "Example L-Shape Sofa" spans 3 rows, one per Material option, each with its own SKU/price/image but sharing the product-level fields from the first row.',
+      'Image List: comma-separated filenames, e.g. "sofa-front.jpg, sofa-side.jpg". On a variant row, leaving this blank inherits the group\'s images from the first row — fill it in only if this specific variant needs different photos.',
       'To upload new photos, ZIP them together and upload the ZIP alongside this file on the bulk-upload screen — filenames inside the ZIP must exactly match the Image List column.',
       'Supported image formats inside the ZIP: PNG, JPG, JPEG, WEBP. Other file types are skipped and reported after upload.',
       'If a referenced image still isn\'t found after upload, the product is still created/updated — add the missing photo afterward via the product form.',
@@ -598,9 +758,45 @@ router.post(
         return tag.id;
       };
 
+      // Rows sharing a Product Handle are variants of one product — only
+      // the group's first row is expected to carry these product-level
+      // fields, so later rows in the same group inherit whatever they
+      // leave blank from it.
+      const groupDefaults = new Map();
+      const INHERITABLE_FIELDS = [
+        'name',
+        'category',
+        'brand',
+        'short_description',
+        'description',
+        'tags',
+        'image_filenames',
+        'video_filename',
+        'featured_tag',
+        'is_active'
+      ];
+
       const report = [];
       for (const row of rows) {
         try {
+          const handle = row.product_handle ? String(row.product_handle).trim() : null;
+          if (handle) {
+            if (!groupDefaults.has(handle)) {
+              const defaults = {};
+              INHERITABLE_FIELDS.forEach((field) => {
+                defaults[field] = row[field];
+              });
+              groupDefaults.set(handle, defaults);
+            } else {
+              const defaults = groupDefaults.get(handle);
+              INHERITABLE_FIELDS.forEach((field) => {
+                if (row[field] === undefined || row[field] === null || row[field] === '') {
+                  row[field] = defaults[field];
+                }
+              });
+            }
+          }
+
           if (!row.name || !row.category || !row.price) {
             throw new Error('Missing required field (Name, Category, or Price)');
           }
@@ -608,6 +804,8 @@ router.post(
           const featured_tag_id = await resolveFeaturedTagId(row.featured_tag);
           const values = {
             sku: row.sku,
+            product_handle: handle,
+            variant_options: parseVariantOptions(row.variant_options),
             name: row.name,
             brand: row.brand || null,
             category_id,
