@@ -7,13 +7,15 @@ import {
   ShoppingCart,
   DollarSign,
   Package,
-  Tag,
-  Mail,
   ArrowRight,
+  Clock,
+  AlertTriangle,
+  MessageCircleQuestion,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -43,8 +45,44 @@ const ENQUIRY_STATUS_VARIANT: Record<EnquiryStatus, "info" | "warning" | "succes
   closed: "success",
 };
 
-// Matches the bordered-box-with-header-bar convention already used on the
-// Sales Report page, plus an optional link to the module's full page.
+// A single clickable alert in the "Needs attention" row — amber when there's
+// something to act on, quiet/neutral at zero so it doesn't compete for
+// attention when there's genuinely nothing to do.
+function AttentionItem({
+  href,
+  icon: Icon,
+  label,
+  count,
+}: {
+  href: string;
+  icon: React.ElementType;
+  label: string;
+  count: number | undefined;
+}) {
+  const active = (count ?? 0) > 0;
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex flex-1 items-center gap-3 rounded-lg border px-4 py-3 transition-colors",
+        active
+          ? "border-amber-300 bg-amber-50 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:hover:bg-amber-950/60"
+          : "hover:bg-muted/50"
+      )}
+    >
+      <Icon className={cn("h-5 w-5 shrink-0", active ? "text-amber-600" : "text-muted-foreground")} />
+      <div className="min-w-0">
+        <div className={cn("text-xl font-bold leading-none", active && "text-amber-900 dark:text-amber-200")}>
+          {count ?? "—"}
+        </div>
+        <div className="mt-1 truncate text-xs text-muted-foreground">{label}</div>
+      </div>
+    </Link>
+  );
+}
+
+// The bordered-box-with-header-bar convention, for the two detail tables
+// that deserve real visual weight (what's actually selling, by category).
 function ModuleCard({
   title,
   href,
@@ -97,6 +135,8 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const openEnquiries = data ? data.enquiryStatusBreakdown.new + data.enquiryStatusBreakdown.contacted : undefined;
+
   const stats = [
     {
       label: "Total Revenue",
@@ -110,16 +150,10 @@ export default function DashboardPage() {
       icon: Users,
     },
     { label: "Active Products", value: data?.activeProducts, icon: Package },
-    { label: "Active Coupons", value: data?.activeCoupons, icon: Tag },
-    {
-      label: "Open Enquiries",
-      value: data ? data.enquiryStatusBreakdown.new + data.enquiryStatusBreakdown.contacted : undefined,
-      icon: Mail,
-    },
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-2xl font-semibold">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
@@ -127,7 +161,29 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {/* What needs a look today — the one place the eye should land first. */}
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <AttentionItem
+          href="/orders"
+          icon={Clock}
+          label="Pending orders"
+          count={data?.orderStatusBreakdown.pending}
+        />
+        <AttentionItem
+          href="/products"
+          icon={AlertTriangle}
+          label="Low stock products"
+          count={data?.lowStockProducts.length}
+        />
+        <AttentionItem
+          href="/enquiries"
+          icon={MessageCircleQuestion}
+          label="Open enquiries"
+          count={openEnquiries}
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.label}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -148,23 +204,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <ModuleCard title="Orders by status" href="/reports/sales">
-          <div className="flex flex-wrap gap-2 p-4">
-            {!data ? (
-              <span className="text-sm text-muted-foreground">
-                {loading ? "Loading..." : "No data."}
-              </span>
-            ) : (
-              (Object.keys(data.orderStatusBreakdown) as OrderStatus[]).map((status) => (
-                <div key={status} className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5">
-                  <Badge variant={ORDER_STATUS_VARIANT[status]}>{status}</Badge>
-                  <span className="text-sm font-medium">{data.orderStatusBreakdown[status]}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </ModuleCard>
-
         <ModuleCard title="Top selling products (last 30 days)" href="/products">
           <Table>
             <TableHeader>
@@ -225,94 +264,80 @@ export default function DashboardPage() {
             </TableBody>
           </Table>
         </ModuleCard>
+      </div>
 
-        <ModuleCard title="Low stock (5 or fewer)" href="/products">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!data || data.lowStockProducts.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={2} className="text-center text-muted-foreground">
-                    {loading ? "Loading..." : "Nothing running low."}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.lowStockProducts.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      {p.name}
-                      <div className="font-mono text-xs text-muted-foreground">{p.sku}</div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant={p.stock_qty === 0 ? "destructive" : "warning"}>
-                        {p.stock_qty}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </ModuleCard>
+      {/* Quieter, supplementary detail — same info as before, just no longer
+          competing at the same visual weight as the sections above. */}
+      <div className="rounded-md border">
+        <div className="grid divide-y text-sm sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div className="flex flex-col gap-2 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Orders by status</span>
+              <Link href="/orders" className="text-xs text-muted-foreground hover:text-foreground">
+                View all
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {!data
+                ? null
+                : (Object.keys(data.orderStatusBreakdown) as OrderStatus[]).map((status) => (
+                    <Badge key={status} variant={ORDER_STATUS_VARIANT[status]}>
+                      {status} {data.orderStatusBreakdown[status]}
+                    </Badge>
+                  ))}
+            </div>
+          </div>
 
-        <ModuleCard title="Coupons" href="/coupons">
-          <div className="flex flex-col gap-3 p-4">
-            {!data ? (
-              <span className="text-sm text-muted-foreground">
-                {loading ? "Loading..." : "No data."}
-              </span>
-            ) : (
-              <>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Active coupons</span>
-                  <span className="font-medium">{data.activeCoupons}</span>
+          <div className="flex flex-col gap-2 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Coupons</span>
+              <Link href="/coupons" className="text-xs text-muted-foreground hover:text-foreground">
+                View all
+              </Link>
+            </div>
+            {data && (
+              <div className="flex flex-col gap-1 text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Active</span>
+                  <span className="font-medium text-foreground">{data.activeCoupons}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Total redemptions</span>
-                  <span className="font-medium">{data.couponRedemptions}</span>
+                <div className="flex justify-between">
+                  <span>Redemptions</span>
+                  <span className="font-medium text-foreground">{data.couponRedemptions}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Most used</span>
-                  <span className="font-medium">
-                    {data.topCoupon
-                      ? `${data.topCoupon.code} (${data.topCoupon.usedCount})`
-                      : "—"}
+                <div className="flex justify-between">
+                  <span>Most used</span>
+                  <span className="font-medium text-foreground">
+                    {data.topCoupon ? `${data.topCoupon.code} (${data.topCoupon.usedCount})` : "—"}
                   </span>
                 </div>
-              </>
+              </div>
             )}
           </div>
-        </ModuleCard>
 
-        <ModuleCard title="Enquiries" href="/enquiries">
-          <div className="flex flex-col gap-3 p-4">
-            {!data ? (
-              <span className="text-sm text-muted-foreground">
-                {loading ? "Loading..." : "No data."}
-              </span>
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  {(Object.keys(data.enquiryStatusBreakdown) as EnquiryStatus[]).map((status) => (
-                    <div key={status} className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5">
-                      <Badge variant={ENQUIRY_STATUS_VARIANT[status]}>{status}</Badge>
-                      <span className="text-sm font-medium">{data.enquiryStatusBreakdown[status]}</span>
-                    </div>
+          <div className="flex flex-col gap-2 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Enquiries by status</span>
+              <Link href="/enquiries" className="text-xs text-muted-foreground hover:text-foreground">
+                View all
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {!data
+                ? null
+                : (Object.keys(data.enquiryStatusBreakdown) as EnquiryStatus[]).map((status) => (
+                    <Badge key={status} variant={ENQUIRY_STATUS_VARIANT[status]}>
+                      {status} {data.enquiryStatusBreakdown[status]}
+                    </Badge>
                   ))}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">New in the last 7 days</span>
-                  <span className="font-medium">{data.recentEnquiries}</span>
-                </div>
-              </>
+            </div>
+            {data && (
+              <span className="text-xs text-muted-foreground">
+                {data.recentEnquiries} new in the last 7 days
+              </span>
             )}
           </div>
-        </ModuleCard>
+        </div>
       </div>
     </div>
   );
