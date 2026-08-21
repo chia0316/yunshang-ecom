@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Lock, ArrowLeft, Check, ShieldCheck, Truck, QrCode } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -63,6 +63,7 @@ interface Profile {
 const CheckoutPage: React.FC = () => {
   const { state, clearCart } = useCart();
   const { user, signup } = useAuth();
+  const navigate = useNavigate();
 
   const [step, setStep] = useState<CheckoutStep>('delivery');
   const [submitting, setSubmitting] = useState(false);
@@ -145,6 +146,14 @@ const CheckoutPage: React.FC = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, [payNowGateOpen]);
+
+  // QR session expired without payment being confirmed — send the customer
+  // back to their cart rather than leaving them stuck on a stale code.
+  useEffect(() => {
+    if (payNowGateOpen && qrSecondsLeft === 0) {
+      navigate('/cart');
+    }
+  }, [payNowGateOpen, qrSecondsLeft, navigate]);
 
   const openPayNowGate = () => {
     setError(null);
@@ -625,36 +634,20 @@ const CheckoutPage: React.FC = () => {
                   <PayNowQrCode />
                 </div>
 
-                {qrSecondsLeft > 0 ? (
-                  <p className="text-sm text-gray-500 mb-6">
-                    Time remaining: <strong className="text-gray-900">{formatTimer(qrSecondsLeft)}</strong>
-                  </p>
-                ) : (
-                  <p className="text-sm text-red-600 mb-6">
-                    This QR code session has expired. Restart the timer to try again.
-                  </p>
-                )}
+                <p className="text-sm text-gray-500 mb-6">
+                  Time remaining: <strong className="text-gray-900">{formatTimer(qrSecondsLeft)}</strong>
+                </p>
 
                 {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
-                {qrSecondsLeft > 0 ? (
-                  <button
-                    type="button"
-                    onClick={placeOrder}
-                    disabled={submitting}
-                    className="w-full flex items-center justify-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-semibold disabled:opacity-50"
-                  >
-                    {submitting ? processingLabel || 'Confirming...' : "I've Made the Payment"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={openPayNowGate}
-                    className="w-full flex items-center justify-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-semibold"
-                  >
-                    Restart Timer
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={placeOrder}
+                  disabled={submitting || qrSecondsLeft === 0}
+                  className="w-full flex items-center justify-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-semibold disabled:opacity-50"
+                >
+                  {submitting ? processingLabel || 'Confirming...' : "I've Made the Payment"}
+                </button>
               </div>
 
               <div className="flex items-center justify-between">
