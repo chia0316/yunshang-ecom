@@ -303,7 +303,9 @@ export function ProductFormDialog({
               onValueChange={(v) => setForm({ ...form, category_id: v ?? "" })}
             >
               <SelectTrigger id="category">
-                <SelectValue placeholder="Select category" />
+                <SelectValue placeholder="Select category">
+                  {categories.find((c) => String(c.id) === form.category_id)?.name}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {categories.map((c) => (
@@ -502,7 +504,11 @@ export function ProductFormDialog({
               onValueChange={(v) => setForm({ ...form, featured_tag_id: v ?? "none" })}
             >
               <SelectTrigger id="featured_tag">
-                <SelectValue placeholder="Not featured" />
+                <SelectValue placeholder="Not featured">
+                  {form.featured_tag_id === "none"
+                    ? "Not featured"
+                    : featuredTags.find((t) => String(t.id) === form.featured_tag_id)?.label}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Not featured</SelectItem>
