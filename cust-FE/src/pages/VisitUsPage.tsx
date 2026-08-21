@@ -91,7 +91,7 @@ const VisitUsPage: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="text-center mb-10">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Visit Us / Get in Touch</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Visit Our 24 Hours Unattended Smart Furniture Store</h1>
         <p className="text-gray-600 max-w-2xl mx-auto">
           Book a showroom appointment, ask a question, or let us know how we can help —
           we'll get back to you shortly.
