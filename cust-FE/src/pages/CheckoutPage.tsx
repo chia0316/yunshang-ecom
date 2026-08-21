@@ -11,6 +11,9 @@ import type { Order } from '../lib/types';
 
 const PAYMENT_METHODS = ['PayNow', 'NETS', 'Card', 'Cash'] as const;
 
+// NETS and Card aren't live yet — only these are offered at checkout for now.
+const ENABLED_PAYMENT_METHODS: (typeof PAYMENT_METHODS)[number][] = ['PayNow', 'Cash'];
+
 // No payment gateway is live yet. PayNow and Cash are confirmed manually by
 // an admin after the fact (QR scan / pay-at-office respectively) instead of
 // the auto-confirm simulation NETS/Card still use below.
@@ -559,7 +562,7 @@ const CheckoutPage: React.FC = () => {
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-6">Payment Method</h2>
                 <div className="grid grid-cols-2 gap-4">
-                  {PAYMENT_METHODS.map((method) => (
+                  {ENABLED_PAYMENT_METHODS.map((method) => (
                     <button
                       type="button"
                       key={method}
