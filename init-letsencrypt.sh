@@ -14,13 +14,7 @@ set -e
 
 cd "$(dirname "$0")"
 
-if [ ! -f .env ]; then
-  echo ".env not found — copy .env.example to .env and fill it in first." >&2
-  exit 1
-fi
-set -a
-source .env
-set +a
+source ./load-env.sh
 
 if [ -z "$DOMAIN" ]; then
   echo "DOMAIN is not set in .env" >&2

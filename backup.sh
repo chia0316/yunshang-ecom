@@ -5,9 +5,7 @@
 set -e
 
 cd "$(dirname "$0")"
-set -a
-source .env
-set +a
+source ./load-env.sh
 
 mkdir -p backups
 timestamp=$(date +%Y%m%d-%H%M%S)
