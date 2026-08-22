@@ -36,7 +36,17 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     }
   }
 
-  const res = await fetch(`${API_URL}${path}`, { ...rest, headers: finalHeaders });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...rest, headers: finalHeaders });
+  } catch {
+    // fetch() only throws for a network-layer failure (no response at all —
+    // connection refused/reset, offline, DNS, etc.), never for a real HTTP
+    // error status. That's not recoverable by retrying the same request
+    // silently, so point the user at a refresh instead of surfacing the raw
+    // "Failed to fetch" browser message.
+    throw new ApiError('Network error — please check your connection and refresh the page.', 0);
+  }
 
   const contentType = res.headers.get('content-type');
   const data = contentType?.includes('application/json') ? await res.json() : undefined;

@@ -38,10 +38,20 @@ export async function apiFetch<T>(
     }
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...rest,
-    headers: finalHeaders,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...rest,
+      headers: finalHeaders,
+    });
+  } catch {
+    // fetch() only throws for a network-layer failure (no response at all —
+    // connection refused/reset, offline, DNS, etc.), never for a real HTTP
+    // error status. That's not recoverable by retrying the same request
+    // silently, so point the user at a refresh instead of surfacing the raw
+    // "Failed to fetch" browser message.
+    throw new ApiError("Network error — please check your connection and refresh the page.", 0);
+  }
 
   const contentType = res.headers.get("content-type");
   const data = contentType?.includes("application/json")
@@ -83,9 +93,14 @@ export function getProductVideoUrl(filename: string): string {
 // a browser download of the response body.
 export async function apiDownload(path: string, filename: string): Promise<void> {
   const token = getToken();
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+  } catch {
+    throw new ApiError("Network error — please check your connection and refresh the page.", 0);
+  }
   if (!res.ok) {
     if (res.status === 401) {
       redirectToLogin();
@@ -99,6 +114,60 @@ export async function apiDownload(path: string, filename: string): Promise<void>
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+// For large multipart uploads (e.g. the product bulk-upload dialog) that
+// need a progress percentage — fetch() has no cross-browser-reliable way to
+// report upload progress, so this uses XMLHttpRequest instead, which does.
+export function apiUpload<T>(
+  path: string,
+  formData: FormData,
+  onProgress?: (percent: number) => void
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_URL}${path}`);
+    const token = getToken();
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      let data: { error?: string } | undefined;
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : undefined;
+      } catch {
+        data = undefined;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data as T);
+      } else {
+        if (xhr.status === 401) redirectToLogin();
+        reject(new ApiError(data?.error || "Request failed", xhr.status));
+      }
+    };
+
+    // Fires on a genuine network-layer failure (connection dropped mid
+    // transfer, offline, DNS, etc.) — same case apiFetch's catch handles,
+    // just via XHR's event instead of a thrown exception. The upload is
+    // safe to simply retry: bulk-upload matches rows by SKU, so re-sending
+    // the same file only re-applies the same creates/updates, never
+    // duplicates — nothing needs to be undone first.
+    xhr.onerror = () => {
+      reject(
+        new ApiError(
+          "Upload interrupted — check your connection and try again. It's safe to re-upload the same file; existing rows are matched by SKU, not duplicated.",
+          0
+        )
+      );
+    };
+
+    xhr.send(formData);
+  });
 }
 
 export { API_URL };
