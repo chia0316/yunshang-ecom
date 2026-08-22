@@ -5,6 +5,7 @@ import {
   ShoppingCart,
   User,
   Menu,
+  X,
   LogOut,
   Heart,
   Clock,
@@ -28,6 +29,7 @@ const Header: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState(
     searchParams.get("search") || "",
   );
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const itemCount = state.items.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleAccountClick = () => {
@@ -41,6 +43,7 @@ const Header: React.FC = () => {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = searchQuery.trim();
+    setIsMobileMenuOpen(false);
     navigate(
       trimmed ? `/products?search=${encodeURIComponent(trimmed)}` : "/products",
     );
@@ -169,11 +172,67 @@ const Header: React.FC = () => {
               </button>
             )}
 
-            <button className="md:hidden text-stone-200 hover:text-terracotta-400 transition-colors">
-              <Menu className="w-5 h-5" />
+            <button
+              onClick={() => setIsMobileMenuOpen((open) => !open)}
+              className="md:hidden text-stone-200 hover:text-terracotta-400 transition-colors"
+              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isMobileMenuOpen}
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-5 h-5" />
+              ) : (
+                <Menu className="w-5 h-5" />
+              )}
             </button>
           </div>
         </div>
+
+        {isMobileMenuOpen && (
+          <div className="md:hidden border-t border-stone-800 py-4 space-y-4">
+            <form onSubmit={handleSearchSubmit} className="flex items-center">
+              <div className="relative w-full">
+                <button
+                  type="submit"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-400 hover:text-terracotta-400"
+                  title="Search"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search furniture..."
+                  className="w-full pl-10 pr-4 py-2 bg-stone-800 border border-stone-700 text-white placeholder:text-stone-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
+                />
+              </div>
+            </form>
+
+            <nav className="flex flex-col space-y-1">
+              <Link
+                to="/"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-stone-200 hover:text-terracotta-400 transition-colors font-medium py-2"
+              >
+                Home
+              </Link>
+              <Link
+                to="/products"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-stone-200 hover:text-terracotta-400 transition-colors font-medium py-2"
+              >
+                Shop
+              </Link>
+              <Link
+                to="/visit-us"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-stone-200 hover:text-terracotta-400 transition-colors font-medium py-2"
+              >
+                Visit Us
+              </Link>
+            </nav>
+          </div>
+        )}
       </div>
     </header>
   );
