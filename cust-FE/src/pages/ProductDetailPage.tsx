@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Heart, Share, Minus, Plus, ShoppingCart, Truck, Shield, Play } from 'lucide-react';
+import { Heart, Share, Minus, Plus, ShoppingCart, Truck, Shield, Play, X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 import { apiFetch, getProductImageUrl, getProductVideoUrl } from '../lib/api';
 import { useCart, withVariantLabel } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
@@ -16,6 +16,7 @@ const ProductDetailPage: React.FC = () => {
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   // Which value is picked per option axis — starts matching whatever product
   // actually loaded, and narrows the "Other options" swatch grid below to
   // only the siblings matching every selected axis (see selectAxisValue).
@@ -29,6 +30,7 @@ const ProductDetailPage: React.FC = () => {
     // flashing back — that swap is near-instant anyway.
     setSelectedImage(0);
     setQuantity(1);
+    setLightboxOpen(false);
     apiFetch<Product>(`/api/products/single/${id}`, { auth: false })
       .then((data) => {
         setProduct(data);
@@ -40,6 +42,25 @@ const ProductDetailPage: React.FC = () => {
         setLoading(false);
       });
   }, [id]);
+
+  // Computed ahead of the early returns below (rather than alongside `media`
+  // further down, which only exists once `product` is confirmed loaded) so
+  // this stays a plain, unconditionally-called hook.
+  const mediaCount = product
+    ? (product.image_filenames.length > 0 ? product.image_filenames.length : 1) +
+      (product.video_filename ? 1 : 0)
+    : 0;
+
+  useEffect(() => {
+    if (!lightboxOpen || mediaCount === 0) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxOpen(false);
+      else if (e.key === 'ArrowLeft') setSelectedImage((i) => (i - 1 + mediaCount) % mediaCount);
+      else if (e.key === 'ArrowRight') setSelectedImage((i) => (i + 1) % mediaCount);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxOpen, mediaCount]);
 
   if (loading) {
     return (
@@ -145,20 +166,31 @@ const ProductDetailPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Product Images */}
         <div className="space-y-4">
-          <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+          <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group/main">
             {media[selectedImage].type === 'video' ? (
               <video
                 key={media[selectedImage].src}
                 src={media[selectedImage].src}
                 controls
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             ) : (
-              <img
-                src={media[selectedImage].src}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                className="block w-full h-full cursor-zoom-in"
+                aria-label="View larger image"
+              >
+                <img
+                  src={media[selectedImage].src}
+                  alt={product.name}
+                  className="w-full h-full object-contain"
+                />
+                <span className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 text-xs font-medium text-white opacity-0 transition-opacity group-hover/main:opacity-100">
+                  <ZoomIn className="w-3.5 h-3.5" />
+                  Click to zoom
+                </span>
+              </button>
             )}
           </div>
 
@@ -386,6 +418,57 @@ const ProductDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {lightboxOpen && media[selectedImage].type === 'image' && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(false)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-8 h-8" />
+          </button>
+
+          {mediaCount > 1 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedImage((i) => (i - 1 + mediaCount) % mediaCount);
+              }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors"
+              aria-label="Previous image"
+            >
+              <ChevronLeft className="w-10 h-10" />
+            </button>
+          )}
+
+          <img
+            src={media[selectedImage].src}
+            alt={product.name}
+            className="max-h-[90vh] max-w-[90vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {mediaCount > 1 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedImage((i) => (i + 1) % mediaCount);
+              }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors"
+              aria-label="Next image"
+            >
+              <ChevronRight className="w-10 h-10" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

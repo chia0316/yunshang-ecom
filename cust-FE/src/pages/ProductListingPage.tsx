@@ -189,11 +189,11 @@ const ProductListingPage: React.FC = () => {
                       viewMode === 'list' ? 'flex' : ''
                     }`}
                   >
-                    <div className={`relative overflow-hidden ${viewMode === 'list' ? 'w-48' : 'aspect-square'}`}>
+                    <div className={`relative overflow-hidden bg-gray-50 ${viewMode === 'list' ? 'w-48' : 'aspect-square'}`}>
                       <img
                         src={getProductImageUrl(product.image_filenames[0])}
                         alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                       />
 
                       {(product.featured_tag || product.sale_price) && (

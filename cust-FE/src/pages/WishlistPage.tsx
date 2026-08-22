@@ -42,11 +42,11 @@ const WishlistPage: React.FC = () => {
                 key={product.id}
                 className="bg-white rounded-lg border border-gray-200 overflow-hidden group"
               >
-                <div className="relative aspect-square">
+                <div className="relative aspect-square bg-gray-50">
                   <img
                     src={getProductImageUrl(product.image_filenames[0])}
                     alt={product.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                   <button
                     onClick={() => toggleWishlist(product)}
