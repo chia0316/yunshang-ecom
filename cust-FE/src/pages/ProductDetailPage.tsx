@@ -137,15 +137,16 @@ const ProductDetailPage: React.FC = () => {
   );
 
   const handleAddToCart = () => {
-    for (let i = 0; i < quantity; i++) {
-      addToCart({
+    addToCart(
+      {
         id: product.id,
         name: withVariantLabel(product.name, product.variant_options),
         price: effectivePrice,
         image: getProductImageUrl(product.image_filenames[0]),
         leadTimeDays: product.lead_time_days,
-      });
-    }
+      },
+      quantity
+    );
   };
 
   const updateQuantity = (newQuantity: number) => {

@@ -19,7 +19,7 @@ interface CartState {
 }
 
 type CartAction =
-  | { type: 'ADD_TO_CART'; payload: Omit<CartItem, 'quantity'> }
+  | { type: 'ADD_TO_CART'; payload: CartItem }
   | { type: 'REMOVE_FROM_CART'; payload: number }
   | { type: 'UPDATE_QUANTITY'; payload: { id: number; quantity: number } }
   | { type: 'APPLY_COUPON'; payload: string }
@@ -29,7 +29,12 @@ type CartAction =
 
 interface CartContextValue {
   state: CartState;
-  addToCart: (item: Omit<CartItem, 'quantity'>) => void;
+  // quantity defaults to 1 — pass a larger number to add several at once in
+  // a single dispatch (and a single toast), instead of calling this in a
+  // loop (which used to fire one toast per unit). Pass silent to suppress
+  // the toast entirely when the caller wants to show its own summary
+  // instead (e.g. re-adding several different products from a past order).
+  addToCart: (item: Omit<CartItem, 'quantity'>, quantity?: number, options?: { silent?: boolean }) => void;
   removeFromCart: (id: number) => void;
   updateQuantity: (id: number, quantity: number) => void;
   applyCoupon: (code: string) => void;
@@ -55,12 +60,14 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 
       if (existingItem) {
         const updatedItems = state.items.map((item) =>
-          item.id === action.payload.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === action.payload.id
+            ? { ...item, quantity: item.quantity + action.payload.quantity }
+            : item
         );
         return { ...state, items: updatedItems, total: calcTotal(updatedItems) };
       }
 
-      const newItems = [...state.items, { ...action.payload, quantity: 1 }];
+      const newItems = [...state.items, action.payload];
       return { ...state, items: newItems, total: calcTotal(newItems) };
     }
 
@@ -174,13 +181,21 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state, user]);
 
-  const addToCart = (item: Omit<CartItem, 'quantity'>) => {
-    dispatch({ type: 'ADD_TO_CART', payload: item });
-    toast.success(`Added "${item.name}" to cart`);
+  const addToCart = (
+    item: Omit<CartItem, 'quantity'>,
+    quantity = 1,
+    options?: { silent?: boolean }
+  ) => {
+    dispatch({ type: 'ADD_TO_CART', payload: { ...item, quantity } });
+    if (!options?.silent) {
+      toast.success(
+        quantity > 1 ? `Added ${quantity} × "${item.name}" to cart` : `Added "${item.name}" to cart`
+      );
+    }
     if (user) {
       apiFetch('/api/cart', {
         method: 'POST',
-        body: JSON.stringify({ product_id: item.id, quantity: 1 }),
+        body: JSON.stringify({ product_id: item.id, quantity }),
       }).catch(() => undefined);
     }
   };

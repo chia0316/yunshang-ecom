@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Check, MapPin, Package, CreditCard, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useCart, withVariantLabel } from '../context/CartContext';
 import { apiFetch, getProductImageUrl } from '../lib/api';
@@ -86,9 +87,10 @@ const AccountOrdersPage: React.FC = () => {
   }
 
   const buyAgain = (order: Order) => {
-    order.orderdetails?.forEach((item) => {
-      for (let i = 0; i < item.quantity; i++) {
-        addToCart({
+    const items = order.orderdetails || [];
+    items.forEach((item) => {
+      addToCart(
+        {
           id: item.product_id,
           name: item.product
             ? withVariantLabel(item.product.name, item.product.variant_options)
@@ -96,9 +98,17 @@ const AccountOrdersPage: React.FC = () => {
           price: Number(item.price),
           image: getProductImageUrl(item.product?.image_filenames?.[0]),
           leadTimeDays: 0,
-        });
-      }
+        },
+        item.quantity,
+        { silent: true }
+      );
     });
+    // One summary toast for the whole order instead of one per line item.
+    toast.success(
+      items.length === 1
+        ? 'Added 1 item to cart'
+        : `Added ${items.length} items to cart`
+    );
   };
 
   return (
