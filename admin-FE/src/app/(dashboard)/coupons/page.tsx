@@ -35,9 +35,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Pagination } from "@/components/ui/pagination";
 import { apiFetch } from "@/lib/api";
 import { useConfirm } from "@/components/confirm-provider";
 import type { Coupon } from "@/lib/types";
+
+const PAGE_SIZE = 20;
 
 const emptyForm = {
   code: "",
@@ -53,6 +56,9 @@ export default function CouponsPage() {
   const confirm = useConfirm();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Coupon | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -60,15 +66,22 @@ export default function CouponsPage() {
 
   const loadCoupons = () => {
     setLoading(true);
-    apiFetch<Coupon[]>("/api/coupons")
-      .then(setCoupons)
+    apiFetch<{ total_pages: number; total: number; data: Coupon[] }>(
+      `/api/coupons?page=${page}&page_size=${PAGE_SIZE}`
+    )
+      .then((res) => {
+        setCoupons(res.data);
+        setTotalPages(res.total_pages);
+        setTotal(res.total);
+      })
       .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load coupons"))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     loadCoupons();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const openCreate = () => {
     setEditing(null);
@@ -254,6 +267,14 @@ export default function CouponsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>

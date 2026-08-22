@@ -44,8 +44,19 @@ router.get('/', authenticate, async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized request' });
   }
   try {
-    const coupons = await Coupon.findAll({ order: [['created_at', 'DESC']] });
-    return res.json(coupons);
+    const page = parseInt(req.query.page) || 1;
+    const page_size = parseInt(req.query.page_size) || 20;
+    const offset = (page - 1) * page_size;
+    const { count, rows } = await Coupon.findAndCountAll({
+      order: [['created_at', 'DESC']],
+      offset,
+      limit: page_size
+    });
+    return res.json({
+      total_pages: Math.ceil(count / page_size),
+      total: count,
+      data: rows
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

@@ -64,8 +64,8 @@ const getAdminUsersPaging = async (req, res) => {
       return res.status(403).send({ error: 'Unauthorized request' });
     }
     const status = req.params.status;
-    const page = req.query.page || 1;
-    const page_size = req.query.page_size || 10;
+    const page = parseInt(req.query.page) || 1;
+    const page_size = parseInt(req.query.page_size) || 20;
     const offset = (page - 1) * page_size;
 
     const userList = await User.findAndCountAll({
@@ -77,8 +77,9 @@ const getAdminUsersPaging = async (req, res) => {
     });
 
     return res.status(200).json({
-      total_pages: parseInt(Math.ceil(userList.count / page_size)),
-      userList: await withOrderStats(userList.rows)
+      total_pages: Math.ceil(userList.count / page_size),
+      total: userList.count,
+      data: await withOrderStats(userList.rows)
     });
   } catch (err) {
     return res.status(500).send({ error: err.message });

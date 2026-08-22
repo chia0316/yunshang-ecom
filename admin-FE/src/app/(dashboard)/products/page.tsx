@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Pagination } from "@/components/ui/pagination";
 import { apiFetch, getProductImageUrl } from "@/lib/api";
 import type { BulkRemoveResponse, Category, Product } from "@/lib/types";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
@@ -28,6 +29,8 @@ import { BulkUploadDialog } from "@/components/products/bulk-upload-dialog";
 import { ImageGalleryDialog } from "@/components/products/image-gallery-dialog";
 import { BulkRemoveResultDialog } from "@/components/products/bulk-remove-result-dialog";
 import { useConfirm } from "@/components/confirm-provider";
+
+const PAGE_SIZE = 20;
 
 export default function ProductsPage() {
   const confirm = useConfirm();
@@ -42,19 +45,25 @@ export default function ProductsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [deleteResult, setDeleteResult] = useState<BulkRemoveResponse | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const loadProducts = useCallback(async (searchText?: string) => {
+  const loadProducts = useCallback(async (searchText?: string, targetPage?: number) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
         includeInactive: "true",
-        page_size: "100",
+        page_size: String(PAGE_SIZE),
+        page: String(targetPage ?? 1),
       });
       if (searchText) params.set("searchText", searchText);
-      const res = await apiFetch<{ data: Product[] }>(
+      const res = await apiFetch<{ data: Product[]; total: number; total_pages: number }>(
         `/api/products?${params.toString()}`
       );
       setProducts(res.data);
+      setTotal(res.total);
+      setTotalPages(res.total_pages);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load products");
     } finally {
@@ -63,14 +72,22 @@ export default function ProductsPage() {
   }, []);
 
   useEffect(() => {
-    loadProducts();
+    loadProducts(search, page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  useEffect(() => {
     apiFetch<Category[]>("/api/category", { auth: false }).then(setCategories);
-  }, [loadProducts]);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSelectedIds(new Set());
-    loadProducts(search);
+    if (page === 1) {
+      loadProducts(search, 1);
+    } else {
+      setPage(1);
+    }
   };
 
   const handleDelete = async (product: Product) => {
@@ -84,7 +101,7 @@ export default function ProductsPage() {
     try {
       await apiFetch(`/api/products/${product.id}`, { method: "DELETE" });
       toast.success("Product deleted");
-      loadProducts(search);
+      loadProducts(search, page);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Delete failed");
     }
@@ -160,7 +177,7 @@ export default function ProductsPage() {
       });
       setDeleteResult(res);
       setSelectedIds(new Set());
-      loadProducts(search);
+      loadProducts(search, page);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Bulk delete failed");
     } finally {
@@ -378,17 +395,25 @@ export default function ProductsPage() {
         </Table>
       </div>
 
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
+
       <ProductFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
         categories={categories}
         product={editing}
-        onSaved={() => loadProducts(search)}
+        onSaved={() => loadProducts(search, page)}
       />
       <BulkUploadDialog
         open={bulkOpen}
         onOpenChange={setBulkOpen}
-        onUploaded={() => loadProducts(search)}
+        onUploaded={() => loadProducts(search, page)}
       />
       <ImageGalleryDialog open={galleryOpen} onOpenChange={setGalleryOpen} />
       <BulkRemoveResultDialog result={deleteResult} onClose={() => setDeleteResult(null)} />

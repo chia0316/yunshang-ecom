@@ -31,6 +31,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Pagination } from "@/components/ui/pagination";
 import { apiFetch, apiDownload } from "@/lib/api";
 import type { Order } from "@/lib/types";
 
@@ -77,9 +78,14 @@ function isCashPaymentOverdue(order: Order): boolean {
   return new Date() > dueAt;
 }
 
+const PAGE_SIZE = 20;
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchInput, setSearchInput] = useState("");
@@ -102,13 +108,21 @@ export default function OrdersPage() {
     if (search) params.set("search", search);
     if (from) params.set("from", from);
     if (to) params.set("to", to);
+    params.set("page", String(page));
+    params.set("page_size", String(PAGE_SIZE));
     return params;
-  }, [statusFilter, search, from, to]);
+  }, [statusFilter, search, from, to, page]);
 
   const loadOrders = useCallback(() => {
     setLoading(true);
-    apiFetch<Order[]>(`/api/orders?${buildParams().toString()}`)
-      .then(setOrders)
+    apiFetch<{ total_pages: number; total: number; data: Order[] }>(
+      `/api/orders?${buildParams().toString()}`
+    )
+      .then((res) => {
+        setOrders(res.data);
+        setTotalPages(res.total_pages);
+        setTotal(res.total);
+      })
       .catch((err) =>
         toast.error(err instanceof Error ? err.message : "Failed to load orders")
       )
@@ -118,6 +132,13 @@ export default function OrdersPage() {
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  // Filters changing should always land back on page 1 — staying on, say,
+  // page 3 of a filter that now only has one page of results would just
+  // show an empty table.
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, search, from, to]);
 
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -399,6 +420,14 @@ export default function OrdersPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
 
       <Dialog
         open={Boolean(deliveryDialogOrder)}

@@ -45,8 +45,20 @@ router.get('/', authenticate, async (req, res) => {
   }
   try {
     const where = req.query.status ? { status: req.query.status } : {};
-    const enquiries = await Enquiry.findAll({ where, order: [['created_at', 'DESC']] });
-    return res.json(enquiries);
+    const page = parseInt(req.query.page) || 1;
+    const page_size = parseInt(req.query.page_size) || 20;
+    const offset = (page - 1) * page_size;
+    const { count, rows } = await Enquiry.findAndCountAll({
+      where,
+      order: [['created_at', 'DESC']],
+      offset,
+      limit: page_size
+    });
+    return res.json({
+      total_pages: Math.ceil(count / page_size),
+      total: count,
+      data: rows
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

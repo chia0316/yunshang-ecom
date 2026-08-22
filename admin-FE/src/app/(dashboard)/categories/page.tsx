@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { MoreHorizontal, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,9 +27,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Pagination } from "@/components/ui/pagination";
 import { apiFetch } from "@/lib/api";
 import { useConfirm } from "@/components/confirm-provider";
 import type { Category } from "@/lib/types";
+
+const PAGE_SIZE = 20;
 
 export default function CategoriesPage() {
   const confirm = useConfirm();
@@ -39,6 +42,7 @@ export default function CategoriesPage() {
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState({ name: "", sub: "", description: "" });
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
 
   const loadCategories = () => {
     setLoading(true);
@@ -50,6 +54,22 @@ export default function CategoriesPage() {
   useEffect(() => {
     loadCategories();
   }, []);
+
+  // The /api/category endpoint is public (the storefront reads it directly
+  // too), so it always returns the full list, not a paginated page — fine,
+  // since categories are a small, admin-curated set. Paginated purely for
+  // display here, client-side.
+  const totalPages = Math.max(1, Math.ceil(categories.length / PAGE_SIZE));
+  const pagedCategories = useMemo(
+    () => categories.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [categories, page]
+  );
+
+  // Clamp back if a delete shrinks the list past the page currently shown
+  // (e.g. removing the only item left on the last page).
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const openCreate = () => {
     setEditing(null);
@@ -147,7 +167,7 @@ export default function CategoriesPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              categories.map((category) => (
+              pagedCategories.map((category) => (
                 <TableRow key={category.id}>
                   <TableCell className="font-medium">{category.name}</TableCell>
                   <TableCell>{category.sub || "—"}</TableCell>
@@ -178,6 +198,14 @@ export default function CategoriesPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={categories.length}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>

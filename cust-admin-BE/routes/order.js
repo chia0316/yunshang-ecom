@@ -60,8 +60,11 @@ router.get('/', authenticate, async (req, res) => {
   }
   try {
     const { where, userWhere } = buildOrderFilters(req.query);
+    const page = parseInt(req.query.page) || 1;
+    const page_size = parseInt(req.query.page_size) || 20;
+    const offset = (page - 1) * page_size;
 
-    const rows = await Order.findAll({
+    const { count, rows } = await Order.findAndCountAll({
       where,
       include: [
         {
@@ -71,7 +74,13 @@ router.get('/', authenticate, async (req, res) => {
           required: Boolean(userWhere)
         }
       ],
-      order: [['created_at', 'DESC']]
+      order: [['created_at', 'DESC']],
+      // Required alongside include, or the JOIN inflates the count to
+      // (orders x matching payments-less join rows) instead of the real
+      // number of distinct orders.
+      distinct: true,
+      offset,
+      limit: page_size
     });
 
     const orderIds = rows.map((row) => row.id);
@@ -90,7 +99,11 @@ router.get('/', authenticate, async (req, res) => {
       payments: paymentsByOrder[row.id] || []
     }));
 
-    res.json(withPayments);
+    res.json({
+      total_pages: Math.ceil(count / page_size),
+      total: count,
+      data: withPayments
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

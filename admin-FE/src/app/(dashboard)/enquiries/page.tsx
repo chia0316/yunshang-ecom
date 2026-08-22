@@ -19,8 +19,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Pagination } from "@/components/ui/pagination";
 import { apiFetch } from "@/lib/api";
 import type { Enquiry, EnquiryStatus, EnquiryType } from "@/lib/types";
+
+const PAGE_SIZE = 20;
 
 const STATUS_OPTIONS: EnquiryStatus[] = ["new", "contacted", "closed"];
 
@@ -40,20 +43,35 @@ export default function EnquiriesPage() {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const loadEnquiries = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams();
     if (statusFilter !== "all") params.set("status", statusFilter);
-    apiFetch<Enquiry[]>(`/api/enquiries?${params.toString()}`)
-      .then(setEnquiries)
+    params.set("page", String(page));
+    params.set("page_size", String(PAGE_SIZE));
+    apiFetch<{ total_pages: number; total: number; data: Enquiry[] }>(
+      `/api/enquiries?${params.toString()}`
+    )
+      .then((res) => {
+        setEnquiries(res.data);
+        setTotalPages(res.total_pages);
+        setTotal(res.total);
+      })
       .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load enquiries"))
       .finally(() => setLoading(false));
-  }, [statusFilter]);
+  }, [statusFilter, page]);
 
   useEffect(() => {
     loadEnquiries();
   }, [loadEnquiries]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter]);
 
   const handleStatusChange = async (enquiry: Enquiry, status: EnquiryStatus) => {
     try {
@@ -178,6 +196,14 @@ export default function EnquiriesPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

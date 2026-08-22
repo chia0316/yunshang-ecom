@@ -14,20 +14,32 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Pagination } from "@/components/ui/pagination";
 import { apiFetch } from "@/lib/api";
 import { useConfirm } from "@/components/confirm-provider";
 import type { User } from "@/lib/types";
+
+const PAGE_SIZE = 20;
 
 export default function CustomersPage() {
   const confirm = useConfirm();
   const [status, setStatus] = useState<"Active" | "Suspended">("Active");
   const [customers, setCustomers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const loadCustomers = (targetStatus: "Active" | "Suspended") => {
+  const loadCustomers = (targetStatus: "Active" | "Suspended", targetPage: number) => {
     setLoading(true);
-    apiFetch<{ userList: User[] }>(`/api/admin/usersList/${targetStatus}`)
-      .then((res) => setCustomers(res.userList))
+    apiFetch<{ total_pages: number; total: number; data: User[] }>(
+      `/api/admin/get-user-admin-paging/${targetStatus}?page=${targetPage}&page_size=${PAGE_SIZE}`
+    )
+      .then((res) => {
+        setCustomers(res.data);
+        setTotalPages(res.total_pages);
+        setTotal(res.total);
+      })
       .catch((err) =>
         toast.error(err instanceof Error ? err.message : "Failed to load customers")
       )
@@ -35,7 +47,11 @@ export default function CustomersPage() {
   };
 
   useEffect(() => {
-    loadCustomers(status);
+    loadCustomers(status, page);
+  }, [status, page]);
+
+  useEffect(() => {
+    setPage(1);
   }, [status]);
 
   const toggleStatus = async (customer: User) => {
@@ -53,7 +69,7 @@ export default function CustomersPage() {
         body: JSON.stringify({ userId: customer.id, status: nextStatus }),
       });
       toast.success(`Customer ${nextStatus.toLowerCase()}`);
-      loadCustomers(status);
+      loadCustomers(status, page);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
     }
@@ -138,6 +154,14 @@ export default function CustomersPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
     </div>
   );
 }
