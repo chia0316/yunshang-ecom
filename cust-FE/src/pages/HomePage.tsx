@@ -20,10 +20,13 @@ const HomePage: React.FC = () => {
     apiFetch<Category[]>('/api/category', { auth: false }).then(setCategories);
   }, []);
 
+  // Always shows all 4 cards, even if a name isn't found in the API yet
+  // (e.g. categories not seeded on a fresh environment) — falls back to
+  // linking at the unfiltered product listing instead of disappearing.
   const featuredCategories = FEATURED_CATEGORIES.map((featured) => ({
     ...featured,
     category: categories.find((c) => c.name === featured.name),
-  })).filter((c) => c.category);
+  }));
 
   const promos = [
     {
@@ -120,21 +123,21 @@ const HomePage: React.FC = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {featuredCategories.map(({ category, image }) => (
+          {featuredCategories.map(({ category, image, name }) => (
             <Link
-              key={category!.id}
-              to={`/products/${category!.id}`}
+              key={name}
+              to={category ? `/products/${category.id}` : '/products'}
               className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
             >
               <div className="aspect-square">
                 <img
                   src={image}
-                  alt={category!.name}
+                  alt={name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
                 <div className="absolute bottom-4 left-4 right-4">
-                  <h3 className="text-white text-2xl font-bold mb-2">{category!.name}</h3>
+                  <h3 className="text-white text-2xl font-bold mb-2">{name}</h3>
                   <span className="text-terracotta-400 font-medium group-hover:text-terracotta-300 transition-colors">
                     Explore Collection →
                   </span>
