@@ -11,7 +11,11 @@ const send = (mailOptions) => {
   }
   sgMail
     .send({
-      from: process.env.SENDGRID_FROM_EMAIL || 'no-reply@yunshang.com.sg',
+      // A display name here is what most inboxes actually show up front
+      // (e.g. Gmail shows "Casa Yun", not the raw address) — the sender
+      // address itself still has to be a real, domain-verified mailbox, so
+      // it can't be hidden outright, only branded.
+      from: { email: process.env.SENDGRID_FROM_EMAIL || 'no-reply@yunshang.com.sg', name: 'Casa Yun' },
       ...mailOptions
     })
     .catch((error) => {
