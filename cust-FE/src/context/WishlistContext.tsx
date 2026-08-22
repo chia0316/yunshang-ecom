@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { apiFetch } from '../lib/api';
 import type { Product } from '../lib/types';
@@ -43,16 +44,19 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (alreadyIn) {
         setItems((prev) => prev.filter((item) => item.id !== product.id));
         await apiFetch(`/api/products/wishlist/${product.id}`, { method: 'DELETE' });
+        toast(`Removed "${product.name}" from wishlist`);
       } else {
         setItems((prev) => [...prev, product]);
         await apiFetch('/api/products/wishlist', {
           method: 'POST',
           body: JSON.stringify({ product_id: product.id }),
         });
+        toast.success(`Added "${product.name}" to wishlist`);
       }
     } catch {
       // Roll back on failure
       load();
+      toast.error('Something went wrong — please try again');
     }
   };
 

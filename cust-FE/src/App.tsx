@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { WishlistProvider } from './context/WishlistContext';
@@ -27,6 +28,7 @@ function App() {
         <WishlistProvider>
           <Router>
             <div className="min-h-screen bg-white">
+              <Toaster position="top-right" richColors closeButton />
               <Header />
               <main>
                 <Routes>

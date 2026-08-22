@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useReducer, ReactNode } from 'react';
+import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { apiFetch, getProductImageUrl } from '../lib/api';
 
@@ -175,6 +176,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addToCart = (item: Omit<CartItem, 'quantity'>) => {
     dispatch({ type: 'ADD_TO_CART', payload: item });
+    toast.success(`Added "${item.name}" to cart`);
     if (user) {
       apiFetch('/api/cart', {
         method: 'POST',
@@ -184,7 +186,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const removeFromCart = (id: number) => {
+    const removedItem = state.items.find((item) => item.id === id);
     dispatch({ type: 'REMOVE_FROM_CART', payload: id });
+    toast(removedItem ? `Removed "${removedItem.name}" from cart` : 'Removed from cart');
     if (user) {
       apiFetch(`/api/cart/${id}`, { method: 'DELETE' }).catch(() => undefined);
     }
