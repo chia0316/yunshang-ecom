@@ -24,6 +24,7 @@ export interface Product {
   image_filenames: string[];
   video_filename: string | null;
   featured_tag_id: number | null;
+  featured_tag?: { id: number; label: string } | null;
   product_handle: string | null;
   variant_options: Record<string, string> | null;
   is_active: boolean;

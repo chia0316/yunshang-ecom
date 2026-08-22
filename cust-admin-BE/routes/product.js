@@ -298,6 +298,17 @@ router.get('/', attachAdminFlag, async (req, res) => {
       });
     }
 
+    // Featured products sort ahead of everything else, ordered by the tag's
+    // own admin-configurable sort_order (see Settings > Featured Tags) —
+    // looked up in JS rather than joined into the candidates query below,
+    // since there are only ever a handful of tags.
+    const featuredTagSortOrder = new Map(
+      (await ProductFeaturedTag.findAll({ attributes: ['id', 'sort_order'] })).map((t) => [
+        t.id,
+        t.sort_order
+      ])
+    );
+
     // Storefront listing/category pages: variant rows sharing a
     // product_handle collapse into one card. Groups (not rows) are what
     // gets paginated, so this fetches every matching row's lightweight
@@ -306,7 +317,7 @@ router.get('/', attachAdminFlag, async (req, res) => {
     // need a real SQL DISTINCT ON if the catalog grew into the thousands.
     const candidates = await Product.findAll({
       where,
-      attributes: ['id', 'product_handle', 'price', 'createdAt'],
+      attributes: ['id', 'product_handle', 'price', 'createdAt', 'featured_tag_id'],
       order: [['createdAt', 'DESC']]
     });
 
@@ -327,10 +338,23 @@ router.get('/', attachAdminFlag, async (req, res) => {
         createdAt: representative.createdAt,
         variantCount: members.length,
         minPrice: Math.min(...prices),
-        maxPrice: Math.max(...prices)
+        maxPrice: Math.max(...prices),
+        featuredSortOrder: featuredTagSortOrder.has(representative.featured_tag_id)
+          ? featuredTagSortOrder.get(representative.featured_tag_id)
+          : null
       };
     });
-    groupSummaries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    groupSummaries.sort((a, b) => {
+      // Featured (non-null) always beats un-featured (null); among featured
+      // groups, lower sort_order wins; ties (including the un-featured
+      // bucket) fall back to newest first.
+      if (a.featuredSortOrder === null && b.featuredSortOrder !== null) return 1;
+      if (a.featuredSortOrder !== null && b.featuredSortOrder === null) return -1;
+      if (a.featuredSortOrder !== null && b.featuredSortOrder !== a.featuredSortOrder) {
+        return a.featuredSortOrder - b.featuredSortOrder;
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
 
     const total = groupSummaries.length;
     const pageSummaries = groupSummaries.slice(offset, offset + page_size);

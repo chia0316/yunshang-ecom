@@ -196,9 +196,9 @@ const ProductListingPage: React.FC = () => {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
 
-                      {product.sale_price && (
+                      {(product.featured_tag || product.sale_price) && (
                         <div className="absolute top-4 left-4 bg-red-500 text-white px-2 py-1 rounded text-sm font-medium">
-                          Sale
+                          {product.featured_tag ? product.featured_tag.label : 'Sale'}
                         </div>
                       )}
 
