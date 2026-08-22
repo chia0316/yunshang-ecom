@@ -33,7 +33,7 @@ const AccountSettingsPage: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
-    apiFetch<{ data: Profile }>('/user/user-data')
+    apiFetch<{ data: Profile }>('/api/user/user-data')
       .then(({ data }) => setProfile(data))
       .finally(() => setLoading(false));
   }, [user]);
@@ -54,7 +54,7 @@ const AccountSettingsPage: React.FC = () => {
     setProfileError(null);
     setProfileSuccess(false);
     try {
-      await apiFetch('/user/update', {
+      await apiFetch('/api/user/update', {
         method: 'PUT',
         body: JSON.stringify({
           firstName: profile.firstName,
@@ -82,7 +82,7 @@ const AccountSettingsPage: React.FC = () => {
     }
     setSavingPassword(true);
     try {
-      await apiFetch('/user/update-password', {
+      await apiFetch('/api/user/update-password', {
         method: 'PUT',
         body: JSON.stringify({
           currentPassword: passwordForm.currentPassword,

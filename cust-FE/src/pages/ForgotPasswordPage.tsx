@@ -13,7 +13,7 @@ const ForgotPasswordPage: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      await apiFetch('/user/forgetpassword', {
+      await apiFetch('/api/user/forgetpassword', {
         method: 'POST',
         auth: false,
         body: JSON.stringify({ email }),

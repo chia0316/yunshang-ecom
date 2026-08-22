@@ -125,7 +125,7 @@ export default function DashboardPage() {
       groupBy: "day",
     });
     Promise.all([
-      apiFetch<DashboardAnalytics>("/admin/dashboard/analytics"),
+      apiFetch<DashboardAnalytics>("/api/admin/dashboard/analytics"),
       apiFetch<SalesReport>(`/api/reports/sales?${params.toString()}`),
     ])
       .then(([analytics, salesReport]) => {

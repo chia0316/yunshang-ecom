@@ -85,11 +85,11 @@ function redirectToLogin() {
 }
 
 export function getProductImageUrl(filename: string): string {
-  return `${API_URL}/static/images/${filename}`;
+  return `${API_URL}/api/static/images/${filename}`;
 }
 
 export function getProductVideoUrl(filename: string): string {
-  return `${API_URL}/static/videos/${filename}`;
+  return `${API_URL}/api/static/videos/${filename}`;
 }
 
 // For endpoints that return a file (e.g. Excel export) instead of JSON —

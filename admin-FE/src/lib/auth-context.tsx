@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       firstName: string;
       isAdmin: boolean;
       token: string;
-    }>("/user/login/notoken", {
+    }>("/api/user/login/notoken", {
       method: "POST",
       auth: false,
       body: JSON.stringify({ username, password }),

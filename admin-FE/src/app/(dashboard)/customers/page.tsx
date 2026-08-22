@@ -26,7 +26,7 @@ export default function CustomersPage() {
 
   const loadCustomers = (targetStatus: "Active" | "Suspended") => {
     setLoading(true);
-    apiFetch<{ userList: User[] }>(`/admin/usersList/${targetStatus}`)
+    apiFetch<{ userList: User[] }>(`/api/admin/usersList/${targetStatus}`)
       .then((res) => setCustomers(res.userList))
       .catch((err) =>
         toast.error(err instanceof Error ? err.message : "Failed to load customers")
@@ -48,7 +48,7 @@ export default function CustomersPage() {
     });
     if (!ok) return;
     try {
-      await apiFetch("/admin/updateUserData", {
+      await apiFetch("/api/admin/updateUserData", {
         method: "PUT",
         body: JSON.stringify({ userId: customer.id, status: nextStatus }),
       });

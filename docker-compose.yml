@@ -53,7 +53,7 @@ services:
     build:
       context: ./admin-FE
       args:
-        NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}
         NEXT_PUBLIC_BASE_PATH: /admin
     restart: unless-stopped
     depends_on:
@@ -65,7 +65,7 @@ services:
     build:
       context: ./cust-FE
       args:
-        VITE_API_URL: https://${DOMAIN}/api
+        VITE_API_URL: https://${DOMAIN}
         VITE_WHATSAPP_NUMBER: ${WHATSAPP_NUMBER}
     restart: unless-stopped
     depends_on:

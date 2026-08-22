@@ -50,7 +50,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       username: string;
       firstName: string;
       token: string;
-    }>('/user/login/notoken', {
+    }>('/api/user/login/notoken', {
       method: 'POST',
       auth: false,
       body: JSON.stringify({ username, password }),
@@ -67,7 +67,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signup = async (payload: SignupPayload) => {
-    await apiFetch('/user/signup/notoken', {
+    await apiFetch('/api/user/signup/notoken', {
       method: 'POST',
       auth: false,
       body: JSON.stringify(payload),

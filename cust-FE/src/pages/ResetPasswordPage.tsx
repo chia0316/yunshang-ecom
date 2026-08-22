@@ -24,7 +24,7 @@ const ResetPasswordPage: React.FC = () => {
     }
     setLoading(true);
     try {
-      await apiFetch('/user/resetpassword', {
+      await apiFetch('/api/user/resetpassword', {
         method: 'POST',
         auth: false,
         body: JSON.stringify({ userId, resetString: token, newPassword }),

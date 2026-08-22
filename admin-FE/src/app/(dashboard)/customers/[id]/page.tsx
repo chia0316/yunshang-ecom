@@ -55,7 +55,7 @@ export default function CustomerDetailPage({
   const load = () => {
     setLoading(true);
     Promise.all([
-      apiFetch<{ data: User }>(`/admin/customer/${id}`),
+      apiFetch<{ data: User }>(`/api/admin/customer/${id}`),
       apiFetch<Order[]>(`/api/orders/user/${id}`),
     ])
       .then(([customerRes, ordersRes]) => {
@@ -84,7 +84,7 @@ export default function CustomerDetailPage({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await apiFetch("/admin/updateUserData", {
+      await apiFetch("/api/admin/updateUserData", {
         method: "PUT",
         body: JSON.stringify({ userId: id, ...form }),
       });

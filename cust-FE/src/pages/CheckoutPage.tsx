@@ -124,7 +124,7 @@ const CheckoutPage: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
-    apiFetch<{ data: Profile }>('/user/user-data')
+    apiFetch<{ data: Profile }>('/api/user/user-data')
       .then(({ data }) => {
         setProfile(data);
         setFormData((prev) => ({

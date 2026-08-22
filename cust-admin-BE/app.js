@@ -31,16 +31,19 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serves product images placed in public/images by filename — the default,
 // dev-friendly counterpart to uploading to S3 via /api/products/upload-images.
-app.use('/static/images', express.static(path.join(__dirname, 'public/images')));
+app.use('/api/static/images', express.static(path.join(__dirname, 'public/images')));
 
 // Serves product videos placed in public/videos by filename — counterpart to
 // uploading via /api/products/upload-video.
-app.use('/static/videos', express.static(path.join(__dirname, 'public/videos')));
+app.use('/api/static/videos', express.static(path.join(__dirname, 'public/videos')));
 
-app.use('/user', userRouter);
-app.use('/admin', adminRouter);
-app.use('/admin/dashboard', analyticsRouter);
-app.use('/auth', authRouter);
+// Every route lives under /api/ now — consistent naming, and it's what
+// lets nginx proxy /api/ straight through to this app with no path
+// rewriting at all (see nginx/templates/default.conf.template).
+app.use('/api/user', userRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/admin/dashboard', analyticsRouter);
+app.use('/api/auth', authRouter);
 
 app.use('/api/products', productRouter);
 app.use('/api/products/wishlist', wishlistRouter);

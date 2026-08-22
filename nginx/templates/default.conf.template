@@ -38,26 +38,13 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
-    # Backend API — /api/products, /user/login, /static/images/... on the
-    # backend side all lose their /api prefix here (proxy_pass's trailing
-    # "/" replaces the /api/ the location matched), which is what makes
-    # both prefixed routes (/api/products) and unprefixed ones
-    # (/user/login, /static/...) resolve correctly on the other side —
-    # the backend's own route mounting is a mix of both.
-    #
-    # Deliberately a literal target here, NOT a $variable like the other
-    # locations below — nginx only performs this prefix-replacement rewrite
-    # (matched /api/ -> proxy_pass's trailing "/") when the target is
-    # static. With a variable, the request's actual path is discarded
-    # entirely and every request lands on the bare backend root instead —
-    # a real, documented nginx gotcha, not a hypothetical one (confirmed
-    # live: /api/api/category was returning the root health-check payload
-    # instead of the category list). The tradeoff is backend's hostname is
-    # now resolved once at nginx startup instead of per-request, which is
-    # fine since docker-compose's depends_on already sequences backend
-    # before nginx.
+    # Backend API — every backend route is mounted under /api/ (see
+    # cust-admin-BE/app.js), matching what the frontends actually call, so
+    # this is a plain passthrough with no path rewriting at all — same
+    # pattern as /admin and / below.
     location /api/ {
-        proxy_pass http://backend:8090/;
+        set $upstream_backend http://backend:8090;
+        proxy_pass $upstream_backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -65,9 +52,9 @@ server {
         client_max_body_size 500M;
     }
 
-    # Admin dashboard — no prefix stripping here, unlike /api above. Next.js
-    # is built with basePath "/admin" (see admin-FE/next.config.ts), so it
-    # expects to keep seeing "/admin" in the request path itself.
+    # Admin dashboard — also a plain passthrough. Next.js is built with
+    # basePath "/admin" (see admin-FE/next.config.ts), so it expects to
+    # keep seeing "/admin" in the request path itself.
     location /admin {
         set $upstream_adminfe http://admin-fe:3000;
         proxy_pass $upstream_adminfe;

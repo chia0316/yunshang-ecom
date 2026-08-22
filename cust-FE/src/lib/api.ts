@@ -73,12 +73,12 @@ export function getProductImageUrl(filename?: string | null): string {
   if (!filename) {
     return 'https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&cs=tinysrgb&w=600';
   }
-  return `${API_URL}/static/images/${filename}`;
+  return `${API_URL}/api/static/images/${filename}`;
 }
 
 export function getProductVideoUrl(filename?: string | null): string | null {
   if (!filename) return null;
-  return `${API_URL}/static/videos/${filename}`;
+  return `${API_URL}/api/static/videos/${filename}`;
 }
 
 export { API_URL };
