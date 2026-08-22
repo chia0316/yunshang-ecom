@@ -1,14 +1,16 @@
-# Proxies to cust-fe only — the backend and admin-fe are deliberately not
-# reachable through this domain, they stay IP:port-only until their own
-# domain/API routing is set up later (see DEPLOY.md).
+# Everything lives on this one domain now: storefront at /, admin dashboard
+# at /admin, backend API at /api. No IP-based access — a request that
+# doesn't carry the right Host header just falls through to the HTTPS
+# redirect below and fails TLS (no cert issued for a raw IP), which is the
+# intended "not reachable that way anymore" outcome.
 #
 # ${DOMAIN} is substituted at container startup from the nginx service's
 # environment (see docker-compose.yml); everything else here ($host,
 # $remote_addr, etc.) are nginx's own runtime variables and are left as-is.
 
-# Docker's embedded DNS — resolves cust-fe at request time instead of once
-# at nginx startup, so nginx doesn't fail to boot (or go stale) if cust-fe
-# isn't up yet or gets recreated later.
+# Docker's embedded DNS — resolves each upstream at request time instead of
+# once at nginx startup, so nginx doesn't fail to boot (or go stale) if an
+# upstream isn't up yet or gets recreated later.
 resolver 127.0.0.11 valid=10s;
 
 # yunshang.com.sg / www.yunshang.com.sg — redirect to HTTPS, except for the
@@ -26,23 +28,6 @@ server {
     }
 }
 
-# Anything else on port 80 (i.e. the bare droplet IP) — plain HTTP straight
-# to the storefront, no redirect. This is the "cust-fe by IP for testing"
-# path; there's no valid cert for a raw IP so it isn't pushed to HTTPS.
-server {
-    listen 80 default_server;
-    server_name _;
-
-    location / {
-        set $upstream_custfe http://cust-fe:80;
-        proxy_pass $upstream_custfe;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
 server {
     listen 443 ssl;
     server_name ${DOMAIN} www.${DOMAIN};
@@ -53,6 +38,35 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
+    # Backend API — /api/products, /user/login, /static/images/... on the
+    # backend side all lose their /api prefix here (proxy_pass's trailing
+    # "/" replaces the /api/ the location matched), which is what makes
+    # both prefixed routes (/api/products) and unprefixed ones
+    # (/user/login, /static/...) resolve correctly on the other side —
+    # the backend's own route mounting is a mix of both.
+    location /api/ {
+        set $upstream_backend http://backend:8090;
+        proxy_pass $upstream_backend/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 500M;
+    }
+
+    # Admin dashboard — no prefix stripping here, unlike /api above. Next.js
+    # is built with basePath "/admin" (see admin-FE/next.config.ts), so it
+    # expects to keep seeing "/admin" in the request path itself.
+    location /admin {
+        set $upstream_adminfe http://admin-fe:3000;
+        proxy_pass $upstream_adminfe;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Storefront — everything else.
     location / {
         set $upstream_custfe http://cust-fe:80;
         proxy_pass $upstream_custfe;

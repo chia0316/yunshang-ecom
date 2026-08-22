@@ -42,8 +42,9 @@ services:
       GST_ENABLED: ${GST_ENABLED}
       GST_RATE: ${GST_RATE}
       STOREFRONT_URL: https://${DOMAIN}
-    ports:
-      - "8090:8090"
+    # Not published to the host — reachable only from other containers, at
+    # backend:8090, via nginx's /api/ proxy below. Nothing external needs
+    # to reach it directly anymore.
     volumes:
       - backend_images:/app/public/images
       - backend_videos:/app/public/videos
@@ -52,18 +53,19 @@ services:
     build:
       context: ./admin-FE
       args:
-        NEXT_PUBLIC_API_URL: http://${DROPLET_IP}:8090
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
+        NEXT_PUBLIC_BASE_PATH: /admin
     restart: unless-stopped
     depends_on:
       - backend
-    ports:
-      - "3001:3000"
+    # Not published to the host — reachable only via nginx's /admin/ proxy
+    # below, at admin-fe:3000.
 
   cust-fe:
     build:
       context: ./cust-FE
       args:
-        VITE_API_URL: http://${DROPLET_IP}:8090
+        VITE_API_URL: https://${DOMAIN}/api
         VITE_WHATSAPP_NUMBER: ${WHATSAPP_NUMBER}
     restart: unless-stopped
     depends_on:
@@ -71,15 +73,15 @@ services:
     expose:
       - "80"
 
-  # Reverse proxy in front of cust-fe only — serves the real domain over
-  # HTTPS, and plain HTTP for droplet-IP testing. Never proxies to backend
-  # or admin-fe; those stay reachable by IP:port directly (see below), and
-  # get their own domain routing later.
+  # Reverse proxy in front of all three apps — storefront at /, admin
+  # dashboard at /admin, backend API at /api, all on one HTTPS domain.
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
     depends_on:
       - cust-fe
+      - admin-fe
+      - backend
     environment:
       DOMAIN: ${DOMAIN}
     ports:

@@ -6,16 +6,13 @@ command. This avoids the usual manual-setup mistakes (wrong Node version,
 forgetting to build, misconfigured process manager) since the exact
 versions and steps are baked into the Dockerfiles.
 
-The storefront is served two ways: on its real domain over HTTPS (via an
-nginx + Let's Encrypt container, see step 6), and by IP for quick testing.
-The admin dashboard and backend API are IP:port-only for now — no domain
-routing to them yet, that's a deliberate follow-up (see the end of this
-doc), not an oversight:
+Everything is served on one domain over HTTPS (via an nginx + Let's
+Encrypt container, see step 6) — nothing is reachable by the droplet's
+bare IP or by port, only through nginx:
 
-- Storefront (domain): `https://yunshang.com.sg`
-- Storefront (IP, testing): `http://<droplet-ip>`
-- Admin dashboard (IP, testing): `http://<droplet-ip>:3001`
-- Backend API (IP, testing): `http://<droplet-ip>:8090`
+- Storefront: `https://yunshang.com.sg`
+- Admin dashboard: `https://yunshang.com.sg/admin`
+- Backend API: `https://yunshang.com.sg/api`
 
 ## 1. One-time droplet setup
 
@@ -25,12 +22,12 @@ SSH into your droplet, then:
 # Install Docker + Compose plugin (Ubuntu)
 curl -fsSL https://get.docker.com | sh
 
-# Allow the required ports through the firewall
+# Allow the required ports through the firewall — just SSH and the two
+# nginx-facing ports now; the backend and admin dashboard aren't published
+# to the host at all, so they need no firewall rule of their own.
 ufw allow 22/tcp
 ufw allow 80/tcp
 ufw allow 443/tcp
-ufw allow 3001/tcp
-ufw allow 8090/tcp
 ufw --force enable
 ```
 
@@ -63,18 +60,18 @@ cp .env.example .env
 nano .env
 ```
 
-At minimum, set `DROPLET_IP` to your droplet's actual public IP, `DOMAIN` to
-your storefront domain (e.g. `yunshang.com.sg`), `CERTBOT_EMAIL` to an
-address you actually check (Let's Encrypt sends renewal-failure notices
-there), `DB_PASSWORD` to a strong password, and `SENDGRID_API_KEY` if you
-want emails to send (leave blank to skip emails entirely — nothing breaks,
-they just won't send). The JWT secret and admin password are already
-pre-filled with generated values.
+At minimum, set `DOMAIN` to your domain (e.g. `yunshang.com.sg`),
+`CERTBOT_EMAIL` to an address you actually check (Let's Encrypt sends
+renewal-failure notices there), `DB_PASSWORD` to a strong password, and
+`SENDGRID_API_KEY` if you want emails to send (leave blank to skip emails
+entirely — nothing breaks, they just won't send). The JWT secret and admin
+password are already pre-filled with generated values.
 
-Before continuing, point `DOMAIN`'s A record (and `www.DOMAIN`'s) at
-`DROPLET_IP` with your DNS provider — DNS can take a few minutes to
+Before continuing, point `DOMAIN`'s A record (and `www.DOMAIN`'s) at your
+droplet's public IP with your DNS provider — DNS can take a few minutes to
 propagate, so it's worth doing this now and letting it catch up while you
-do the rest of this page.
+do the rest of this page. The IP itself isn't stored anywhere in `.env` —
+it's only needed at your DNS provider.
 
 ## 4. Bring everything up
 
@@ -87,8 +84,11 @@ automatically on backend startup — no manual migration step needed.
 
 `nginx` will fail to start and keep restarting right after this — that's
 expected, not a bug. Its config references a certificate for `DOMAIN` that
-doesn't exist until step 6 below issues one. Everything else (storefront by
-IP, admin, backend) is unaffected in the meantime.
+doesn't exist until step 6 below issues one. Since nginx is the only public
+entry point to all three apps now, nothing is reachable from outside the
+droplet until then — that's fine, it's a short bootstrapping gap; the other
+containers are still up and can be checked directly with `docker compose
+exec` if needed (e.g. `docker compose exec backend wget -qO- http://localhost:8090/`).
 
 ## 5. Seed initial data (first deploy only)
 
@@ -103,8 +103,8 @@ harmless, just skip it on subsequent deploys.
 
 ## 6. Get the HTTPS certificate (first deploy only)
 
-Make sure `DOMAIN`'s DNS has propagated to `DROPLET_IP` first (`dig +short
-$DOMAIN` should return your droplet's IP), then:
+Make sure `DOMAIN`'s DNS has propagated to your droplet's IP first (`dig
++short $DOMAIN` should return it), then:
 
 ```bash
 ./init-letsencrypt.sh
@@ -123,15 +123,13 @@ confirmed the flow works.
 ## 7. Verify
 
 ```bash
-curl http://localhost:8090/                 # {"message":"Alive!"}
-curl -o /dev/null -w "%{http_code}\n" http://localhost/          # 200
-curl -o /dev/null -w "%{http_code}\n" http://localhost:3001/login # 200
-curl -o /dev/null -w "%{http_code}\n" https://$DOMAIN/           # 200
+curl -o /dev/null -w "%{http_code}\n" https://$DOMAIN/            # 200 — storefront
+curl -o /dev/null -w "%{http_code}\n" https://$DOMAIN/admin/login # 200 — admin dashboard
+curl -o /dev/null -w "%{http_code}\n" https://$DOMAIN/api/category # 200 — backend, via /api
 ```
 
-Then from your own machine, open `https://yunshang.com.sg`,
-`http://<droplet-ip>` (storefront), and `http://<droplet-ip>:3001` (admin)
-in a browser.
+Then from your own machine, open `https://yunshang.com.sg` and
+`https://yunshang.com.sg/admin` in a browser.
 
 ## Redeploying after code changes
 
@@ -164,12 +162,14 @@ droplet failure.
 Photos uploaded via the admin panel (individually, via bulk-upload ZIP, or
 referenced by SKU) live in the `backend_images` Docker volume, mounted at
 `/app/public/images` inside the backend container, served at
-`http://<droplet-ip>:8090/static/images/<filename>`. Product videos
-(uploaded individually via the product form, max 10MB each) live the same
-way in `backend_videos`, mounted at `/app/public/videos`, served at
-`http://<droplet-ip>:8090/static/videos/<filename>`. Both volumes persist
-across `docker compose up --build`, but back them up too if you care about
-the media (not covered by the Postgres backup script above):
+`https://yunshang.com.sg/api/static/images/<filename>`. Product videos
+(uploaded individually via the product form, max 10MB each; bulk-upload
+files can be up to 500MB — see nginx's `client_max_body_size` on the `/api/`
+location) live the same way in `backend_videos`, mounted at
+`/app/public/videos`, served at
+`https://yunshang.com.sg/api/static/videos/<filename>`. Both volumes
+persist across `docker compose up --build`, but back them up too if you
+care about the media (not covered by the Postgres backup script above):
 
 ```bash
 docker run --rm -v yunshang_backend_images:/data -v $(pwd)/backups:/backup \
@@ -190,16 +190,26 @@ crontab -e
 0 4 * * * /opt/yunshang/renew-cert.sh >> /opt/yunshang/renew-cert.log 2>&1
 ```
 
-## Adding the backend/admin domain later
+## How the domain routing works
 
-The domain currently only routes to the storefront (`nginx` only proxies
-to `cust-fe` — see `nginx/templates/default.conf.template`); the backend
-and admin dashboard are deliberately still IP:port-only. When you're ready
-to put those on a domain too (e.g. `api.yunshang.com.sg`,
-`admin.yunshang.com.sg`), that's a matter of adding more `server` blocks to
-that same nginx config (proxying to `backend`/`admin-fe` instead of
-`cust-fe`) and issuing certs for those hostnames too — a relatively small
-addition on top of what's here. Happy to set this up when you're ready.
+`nginx` (see `nginx/templates/default.conf.template`) is the only container
+reachable from outside the droplet — the storefront, admin dashboard, and
+backend have no `ports:` mapping in `docker-compose.yml` at all, they're
+reached from nginx purely over Docker's internal network:
+
+- `/` → `cust-fe` (unchanged, full path passed through)
+- `/admin` → `admin-fe`, full path passed through — the admin dashboard is
+  built with Next's `basePath` set to `/admin` (see
+  `admin-FE/next.config.ts`, baked in via the `NEXT_PUBLIC_BASE_PATH` build
+  arg), so it expects to keep seeing `/admin` in the request path itself
+- `/api/` → `backend`, with the `/api/` prefix stripped before forwarding
+  (the backend's own routes are a mix of `/api/...`-prefixed and bare
+  `/user`, `/admin`, `/static/...` mounts — stripping just the outer `/api/`
+  the location matched, rather than rewriting to a fixed path, is what
+  makes both kinds resolve correctly on the other side)
+
+If you ever need to change this (e.g. move to subdomains instead of
+paths), it's all in that one template file.
 
 Note: the template is bind-mounted, not baked into the nginx image, so
 editing it takes effect only after nginx actually restarts and re-runs its

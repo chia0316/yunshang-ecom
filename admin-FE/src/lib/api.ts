@@ -75,8 +75,12 @@ function redirectToLogin() {
   if (typeof window === "undefined") return;
   localStorage.removeItem("yunshang_admin_token");
   localStorage.removeItem("yunshang_admin_user");
-  if (window.location.pathname !== "/login") {
-    window.location.href = "/login";
+  // Next's basePath (see next.config.ts) prefixes router.push/<Link> paths
+  // automatically, but not a raw window.location assignment — has to be
+  // built in by hand here.
+  const loginPath = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/login`;
+  if (window.location.pathname !== loginPath) {
+    window.location.href = loginPath;
   }
 }
 
