@@ -148,22 +148,61 @@ const CheckoutPage: React.FC = () => {
   }, [payNowGateOpen]);
 
   // QR session expired without payment being confirmed — send the customer
-  // back to their cart rather than leaving them stuck on a stale code.
+  // back to their cart rather than leaving them stuck on a stale code, and
+  // clean up the pending order that was created when the gate opened (see
+  // openPayNowGate) so it doesn't sit around as an abandoned checkout.
   useEffect(() => {
     if (payNowGateOpen && qrSecondsLeft === 0) {
+      cancelPendingOrder();
       navigate('/cart');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payNowGateOpen, qrSecondsLeft, navigate]);
 
-  const openPayNowGate = () => {
+  // The order (and its order_number) is created here rather than after
+  // payment is confirmed — the customer needs a real reference to type into
+  // their banking app's PayNow reference field before they can pay, not
+  // after. It stays 'pending' until an admin manually confirms receipt,
+  // same as Cash; if the customer backs out or the timer runs out without
+  // paying, it gets cancelled (see cancelPendingOrder) rather than left
+  // dangling.
+  const openPayNowGate = async () => {
     setError(null);
-    setQrSecondsLeft(QR_TIMER_SECONDS);
-    setPayNowGateOpen(true);
+    setSubmitting(true);
+    setProcessingLabel('Preparing your order...');
+    try {
+      const { order } = await createOrder();
+      setPlacedOrder(order);
+      setQrSecondsLeft(QR_TIMER_SECONDS);
+      setPayNowGateOpen(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to place order');
+    } finally {
+      setSubmitting(false);
+      setProcessingLabel(null);
+    }
+  };
+
+  // Best-effort — if this fails (e.g. it's already gone), there's nothing
+  // more useful to do than let it sit; admin can also clean up manually.
+  const cancelPendingOrder = () => {
+    if (!placedOrder) return;
+    apiFetch(`/api/orders/${placedOrder.id}`, { method: 'DELETE' }).catch(() => undefined);
+    setPlacedOrder(null);
   };
 
   const closePayNowGate = () => {
+    cancelPendingOrder();
     setPayNowGateOpen(false);
     setQrSecondsLeft(QR_TIMER_SECONDS);
+  };
+
+  // The order already exists (created up front — see openPayNowGate) and
+  // stays pending for admin to confirm manually, same as Cash — nothing
+  // left to create here, just move on to the confirmation screen.
+  const confirmPayNowPayment = () => {
+    clearCart();
+    setStep('confirmation');
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -238,52 +277,62 @@ const CheckoutPage: React.FC = () => {
         : 'border-gray-200 focus:ring-terracotta-500'
     }`;
 
+  // Shared by placeOrder (Cash, and NETS/Card if ever re-enabled) and
+  // openPayNowGate (PayNow needs the order — and its order_number — created
+  // up front, before the QR even shows, so there's a real reference number
+  // to display and to type into the PayNow transfer).
+  const createOrder = async (): Promise<{ order: Order; paymentId: number }> => {
+    const orderRes = await apiFetch<{ order: Order }>('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        // Pre-discount total (subtotal + shipping) — the backend re-validates
+        // the coupon and subtracts the discount itself rather than trusting
+        // a client-computed amount.
+        total_price: subtotal + shipping,
+        couponCode: coupon ? coupon.code : undefined,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        contact: formData.contact,
+        deliveryAddress: formData.address,
+        deliveryPostal: formData.postal,
+        remarks: formData.remarks || null,
+        orderDetails_list: state.items.map((item) => ({
+          product_id: item.id,
+          quantity: item.quantity,
+          price: item.price,
+          name: item.name,
+        })),
+        // Informational only (used for the confirmation email content) —
+        // the actual Payment record below is the source of truth.
+        paymentMethod,
+      }),
+    });
+
+    const payment = await apiFetch<{ id: number }>('/api/payments', {
+      method: 'POST',
+      body: JSON.stringify({
+        order_id: orderRes.order.id,
+        amount: total,
+        currency: 'SGD',
+        method: paymentMethod,
+      }),
+    });
+
+    return { order: orderRes.order, paymentId: payment.id };
+  };
+
   const placeOrder = async () => {
     setSubmitting(true);
     setProcessingLabel('Placing order...');
     setError(null);
     try {
-      const orderRes = await apiFetch<{ order: Order }>('/api/orders', {
-        method: 'POST',
-        body: JSON.stringify({
-          // Pre-discount total (subtotal + shipping) — the backend re-validates
-          // the coupon and subtracts the discount itself rather than trusting
-          // a client-computed amount.
-          total_price: subtotal + shipping,
-          couponCode: coupon ? coupon.code : undefined,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          contact: formData.contact,
-          deliveryAddress: formData.address,
-          deliveryPostal: formData.postal,
-          remarks: formData.remarks || null,
-          orderDetails_list: state.items.map((item) => ({
-            product_id: item.id,
-            quantity: item.quantity,
-            price: item.price,
-            name: item.name,
-          })),
-          // Informational only (used for the confirmation email content) —
-          // the actual Payment record below is the source of truth.
-          paymentMethod,
-        }),
-      });
-
-      const payment = await apiFetch<{ id: number }>('/api/payments', {
-        method: 'POST',
-        body: JSON.stringify({
-          order_id: orderRes.order.id,
-          amount: total,
-          currency: 'SGD',
-          method: paymentMethod,
-        }),
-      });
+      const { order, paymentId } = await createOrder();
 
       if (MANUAL_PAYMENT_METHODS.includes(paymentMethod)) {
         // Cash (pay at office) and PayNow (scan QR, pay manually) both stay
         // pending until an admin manually confirms receipt — see
         // PATCH /api/payments/:pid on the backend.
-        setPlacedOrder(orderRes.order);
+        setPlacedOrder(order);
       } else {
         // No payment gateway is integrated yet — this simulates the
         // confirmation a real gateway webhook would send, so the order flow
@@ -291,7 +340,7 @@ const CheckoutPage: React.FC = () => {
         // webhook later; see routes/payment.js simulate-confirm on the backend.
         setProcessingLabel(`Confirming ${paymentMethod} payment...`);
         const { order: confirmedOrder } = await apiFetch<{ order: Order }>(
-          `/api/payments/${payment.id}/simulate-confirm`,
+          `/api/payments/${paymentId}/simulate-confirm`,
           { method: 'POST' }
         );
         setPlacedOrder(confirmedOrder);
@@ -611,10 +660,10 @@ const CheckoutPage: React.FC = () => {
                   className="flex items-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-medium disabled:opacity-50"
                 >
                   <Lock className="w-4 h-4 mr-2" />
-                  {paymentMethod === 'PayNow'
-                    ? 'Continue to Payment'
-                    : submitting
-                      ? processingLabel || 'Placing Order...'
+                  {submitting
+                    ? processingLabel || 'Placing Order...'
+                    : paymentMethod === 'PayNow'
+                      ? 'Continue to Payment'
                       : 'Place Order'}
                 </button>
               </div>
@@ -634,6 +683,26 @@ const CheckoutPage: React.FC = () => {
                   <PayNowQrCode />
                 </div>
 
+                {placedOrder && (
+                  <div className="bg-gray-50 rounded-lg p-4 mb-4 text-left text-sm text-gray-700 space-y-1">
+                    <p>
+                      Name of Company: <strong className="text-gray-900">{company.name}</strong>
+                    </p>
+                    {company.uen && (
+                      <p>
+                        UEN: <strong className="text-gray-900">{company.uen}</strong>
+                      </p>
+                    )}
+                    <p>
+                      Order Number: <strong className="text-gray-900">{placedOrder.order_number}</strong>
+                    </p>
+                    <p className="text-gray-500 pt-1">
+                      Please key in the Order Number above as your PayNow reference so we
+                      can match your payment to your order.
+                    </p>
+                  </div>
+                )}
+
                 <p className="text-sm text-gray-500 mb-6">
                   Time remaining: <strong className="text-gray-900">{formatTimer(qrSecondsLeft)}</strong>
                 </p>
@@ -642,11 +711,11 @@ const CheckoutPage: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={placeOrder}
-                  disabled={submitting || qrSecondsLeft === 0}
+                  onClick={confirmPayNowPayment}
+                  disabled={qrSecondsLeft === 0}
                   className="w-full flex items-center justify-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-semibold disabled:opacity-50"
                 >
-                  {submitting ? processingLabel || 'Confirming...' : "I've Made the Payment"}
+                  I&apos;ve Made the Payment
                 </button>
               </div>
 

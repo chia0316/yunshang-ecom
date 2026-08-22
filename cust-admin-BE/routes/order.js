@@ -450,17 +450,27 @@ router.patch('/:oid/delivery', authenticate, async (req, res) => {
 // Soft-delete only — the row and its deleted_by_admin_id are kept (see
 // paranoid/deletedAt on the Order model) so a deleted order can always be
 // traced back to who removed it and when, instead of vanishing without trace.
+//
+// Also reachable by the order's own customer (not just admin), but only
+// while it's still 'pending' — this is what lets the PayNow checkout flow
+// clean up its own order if the QR session expires or the customer backs
+// out before ever paying (that order was created up front, as soon as the
+// QR screen opened, precisely so a real order_number exists to show as the
+// PayNow reference — see cust-FE CheckoutPage.tsx).
 router.delete('/:oid', authenticate, async (req, res) => {
-  if (!req.isAdmin) {
-    return res.status(403).json({ error: 'Unauthorized request' });
-  }
   try {
     const { oid } = req.params;
     const order = await Order.findByPk(oid);
     if (!order) {
       return res.status(404).json({ message: 'Order not found', success: false });
     }
-    await order.update({ deleted_by_admin_id: req.userId });
+    const isOwnPendingOrder = order.user_id === req.userId && order.status === 'pending';
+    if (!req.isAdmin && !isOwnPendingOrder) {
+      return res.status(403).json({ error: 'Unauthorized request' });
+    }
+    if (req.isAdmin) {
+      await order.update({ deleted_by_admin_id: req.userId });
+    }
     await order.destroy();
     return res.json({ message: 'Order deleted successfully!', success: true });
   } catch (err) {
