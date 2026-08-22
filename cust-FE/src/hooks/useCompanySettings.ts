@@ -5,9 +5,10 @@ interface CompanySettings {
   name: string;
   address: string;
   phone: string;
+  uen: string;
 }
 
-const DEFAULTS: CompanySettings = { name: '', address: '', phone: '' };
+const DEFAULTS: CompanySettings = { name: '', address: '', phone: '', uen: '' };
 
 // Reads the same public /api/settings endpoint useFreeDeliveryThreshold does
 // — company_* keys are merged in server-side from env vars.
@@ -21,6 +22,7 @@ export function useCompanySettings(): CompanySettings {
           name: settings.company_name || '',
           address: settings.company_address || '',
           phone: settings.company_phone || '',
+          uen: settings.company_uen || '',
         });
       })
       .catch(() => undefined);

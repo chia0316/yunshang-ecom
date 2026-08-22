@@ -18,7 +18,8 @@ router.get('/', async (req, res) => {
       ...settings,
       company_name: company.name,
       company_address: company.address,
-      company_phone: company.phone
+      company_phone: company.phone,
+      company_uen: company.uen
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
