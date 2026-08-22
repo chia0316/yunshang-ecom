@@ -131,9 +131,10 @@ export default function OrdersPage() {
         body: JSON.stringify({ status }),
       });
       toast.success(`Order ${order.order_number} updated to ${status}`);
-      setOrders((prev) =>
-        prev.map((o) => (o.id === order.id ? { ...o, status } : o))
-      );
+      // Reverting paid -> pending also un-confirms the payment behind it
+      // (see routes/order.js) — reload rather than patch local state so the
+      // Payment column/"Mark as Paid" button reflect that immediately.
+      loadOrders();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
     }

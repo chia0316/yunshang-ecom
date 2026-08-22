@@ -401,7 +401,20 @@ router.patch('/:oid', authenticate, async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: 'Order not found', success: false });
     }
+    const previousStatus = order.status;
     await order.update({ status });
+
+    // Reverting a paid order back to pending (e.g. a payment was marked
+    // received by mistake) — un-confirm the payment behind it too, so the
+    // two don't end up out of sync (order pending, payment still showing
+    // completed). Scoped narrowly to this one transition; any other status
+    // change leaves payments untouched.
+    if (status === 'pending' && previousStatus === 'paid') {
+      await Payment.update(
+        { status: 'pending', paid_at: null },
+        { where: { order_id: oid, status: 'completed' } }
+      );
+    }
 
     const user = await User.findByPk(order.user_id);
     mailer.sendOrderStatusUpdateMail(user, order, getCompanySettings());
