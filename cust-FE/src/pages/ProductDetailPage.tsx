@@ -16,6 +16,10 @@ const ProductDetailPage: React.FC = () => {
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  // Which value is picked per option axis — starts matching whatever product
+  // actually loaded, and narrows the "Other options" swatch grid below to
+  // only the siblings matching every selected axis (see selectAxisValue).
+  const [selectedAxisValues, setSelectedAxisValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
     // Only the very first load shows the full-page "Loading product..."
@@ -28,6 +32,7 @@ const ProductDetailPage: React.FC = () => {
     apiFetch<Product>(`/api/products/single/${id}`, { auth: false })
       .then((data) => {
         setProduct(data);
+        setSelectedAxisValues(data.variant_options || {});
         setLoading(false);
       })
       .catch(() => {
@@ -65,21 +70,50 @@ const ProductDetailPage: React.FC = () => {
   const inStock = product.stock_qty > 0;
 
   // Sibling variants (including this one) — powers the switcher below.
-  // Each option axis (e.g. "Material") lists its distinct values, each
-  // pointing at whichever sibling variant has that value; picking one
-  // navigates to that variant's own product page.
   const variants = product.variants && product.variants.length > 1 ? product.variants : [];
   const optionAxes = Array.from(
     new Set(variants.flatMap((v) => (v.variant_options ? Object.keys(v.variant_options) : [])))
   );
-  const axisOptions = (axis: string) => {
-    const seen = new Map<string, number>();
+
+  // Distinct values for an axis (e.g. Material: Fabric/Vancouver/Solana/
+  // Champagne) — grouped, not deduped to one arbitrary variant, since many
+  // siblings can share the same axis value (e.g. several different Fabric
+  // colorways all just labeled "Fabric").
+  const axisValues = (axis: string) => {
+    const seen = new Set<string>();
+    const values: string[] = [];
     variants.forEach((v) => {
       const value = v.variant_options?.[axis];
-      if (value && !seen.has(value)) seen.set(value, v.id);
+      if (value && !seen.has(value)) {
+        seen.add(value);
+        values.push(value);
+      }
     });
-    return Array.from(seen.entries());
+    return values;
   };
+
+  // Picking a "Choose an option" pill narrows the filter rather than
+  // navigating outright — if that narrows things to exactly one sibling
+  // (the common case: every axis value maps 1:1 to a single variant), jump
+  // straight there, same as a direct navigation. If several siblings still
+  // share that value (e.g. 8 different Fabric colorways), it just filters
+  // the swatch grid below down to that group instead of listing all 31.
+  const selectAxisValue = (axis: string, value: string) => {
+    const nextSelection = { ...selectedAxisValues, [axis]: value };
+    setSelectedAxisValues(nextSelection);
+    const matches = variants.filter((v) =>
+      Object.entries(nextSelection).every(([a, val]) => v.variant_options?.[a] === val)
+    );
+    if (matches.length === 1 && matches[0].id !== product.id) {
+      navigate(`/product/${matches[0].id}`);
+    }
+  };
+
+  // Siblings matching every currently selected axis value — what the
+  // "Other options" swatch grid actually renders.
+  const filteredVariants = variants.filter((v) =>
+    Object.entries(selectedAxisValues).every(([axis, val]) => v.variant_options?.[axis] === val)
+  );
 
   const handleAddToCart = () => {
     for (let i = 0; i < quantity; i++) {
@@ -162,11 +196,13 @@ const ProductDetailPage: React.FC = () => {
             </div>
           )}
 
-          {variants.length > 1 && (
+          {filteredVariants.length > 1 && (
             <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Other options</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                Other options ({filteredVariants.length})
+              </h3>
               <div className="grid grid-cols-4 gap-4">
-                {variants.map((v) => {
+                {filteredVariants.map((v) => {
                   const isCurrent = v.id === product.id;
                   const label = v.variant_options
                     ? Object.values(v.variant_options).join(', ')
@@ -223,15 +259,15 @@ const ProductDetailPage: React.FC = () => {
                     {axis === 'Option' ? 'Choose an option' : axis}
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {axisOptions(axis).map(([value, variantId]) => {
-                      const isCurrent = product.variant_options?.[axis] === value;
+                    {axisValues(axis).map((value) => {
+                      const isSelected = selectedAxisValues[axis] === value;
                       return (
                         <button
                           key={value}
                           type="button"
-                          onClick={() => !isCurrent && navigate(`/product/${variantId}`)}
+                          onClick={() => !isSelected && selectAxisValue(axis, value)}
                           className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                            isCurrent
+                            isSelected
                               ? 'border-stone-900 bg-stone-900 text-white'
                               : 'border-gray-200 text-gray-700 hover:border-stone-900'
                           }`}
