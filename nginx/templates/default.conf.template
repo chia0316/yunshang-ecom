@@ -44,9 +44,20 @@ server {
     # both prefixed routes (/api/products) and unprefixed ones
     # (/user/login, /static/...) resolve correctly on the other side —
     # the backend's own route mounting is a mix of both.
+    #
+    # Deliberately a literal target here, NOT a $variable like the other
+    # locations below — nginx only performs this prefix-replacement rewrite
+    # (matched /api/ -> proxy_pass's trailing "/") when the target is
+    # static. With a variable, the request's actual path is discarded
+    # entirely and every request lands on the bare backend root instead —
+    # a real, documented nginx gotcha, not a hypothetical one (confirmed
+    # live: /api/api/category was returning the root health-check payload
+    # instead of the category list). The tradeoff is backend's hostname is
+    # now resolved once at nginx startup instead of per-request, which is
+    # fine since docker-compose's depends_on already sequences backend
+    # before nginx.
     location /api/ {
-        set $upstream_backend http://backend:8090;
-        proxy_pass $upstream_backend/;
+        proxy_pass http://backend:8090/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
