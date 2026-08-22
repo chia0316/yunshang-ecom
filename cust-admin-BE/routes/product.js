@@ -4,6 +4,7 @@ const multer = require('multer');
 const ExcelJS = require('exceljs');
 const AdmZip = require('adm-zip');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { Readable } = require('stream');
 const { Op } = require('sequelize');
@@ -14,10 +15,28 @@ const ProductFeaturedTag = require('../productModels/ProductFeaturedTag.model');
 const { authenticate, attachAdminFlag } = require('../utils/authenticator');
 const { multiImageUpload, videoUpload, imageUploadDir, videoUploadDir } = require('../uploads/upload');
 
-// Bulk-upload accepts the Excel/CSV template plus an optional images ZIP —
-// the ZIP can be sizeable (dozens of product photos), so this gets a higher
-// cap than the individual-image/video upload endpoints.
+// Bulk-remove's file is just a SKU list, always tiny — memory storage is
+// fine there. Bulk-upload's images ZIP can be large, so it gets its own
+// disk-backed upload below instead of sharing this one.
 const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+// Bulk-upload's Excel/CSV + images ZIP are streamed straight to disk rather
+// than buffered in memory — at up to 500MB combined, holding that in RAM
+// per upload (on top of what unzipping needs) risks exhausting the droplet's
+// memory, especially under concurrent uploads. Disk space is cheap by
+// comparison, and the temp files are deleted once processing finishes
+// (success or failure) via the try/finally in the route handler below.
+const bulkUploadTempDir = path.join(os.tmpdir(), 'yunshang-bulk-upload');
+fs.mkdirSync(bulkUploadTempDir, { recursive: true });
+const MAX_BULK_UPLOAD_BYTES = 500 * 1024 * 1024;
+const diskUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, bulkUploadTempDir),
+    filename: (req, file, cb) =>
+      cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`)
+  }),
+  limits: { fileSize: MAX_BULK_UPLOAD_BYTES }
+});
 
 const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
 const ALLOWED_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov'];
@@ -177,8 +196,8 @@ const parseWorksheet = (worksheet) => {
 // upload directory (zip-slip). Returns a report of anything skipped
 // (unsupported format, oversized when uncompressed) or overwritten so the
 // admin can see exactly what happened, not just a final file count.
-const extractImagesZip = async (buffer) => {
-  const zip = new AdmZip(buffer);
+const extractImagesZip = async (zipFilePath) => {
+  const zip = new AdmZip(zipFilePath);
   const zipReport = [];
 
   for (const entry of zip.getEntries()) {
@@ -783,13 +802,13 @@ router.post(
   '/bulk-upload',
   authenticate,
   (req, res, next) => {
-    memoryUpload.fields([
+    diskUpload.fields([
       { name: 'file', maxCount: 1 },
       { name: 'imagesZip', maxCount: 1 }
     ])(req, res, (error) => {
       if (error) {
         if (error.code === 'LIMIT_FILE_SIZE') {
-          return res.status(400).json({ error: 'File too large (max 50MB)' });
+          return res.status(400).json({ error: 'File too large (max 500MB per file)' });
         }
         return res.status(400).json({ error: error.message });
       }
@@ -806,19 +825,33 @@ router.post(
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    const cleanupTempFiles = () => {
+      [file, zipFile].forEach((f) => {
+        if (f) fs.unlink(f.path, () => {});
+      });
+    };
+
+    const totalBytes = file.size + (zipFile?.size || 0);
+    if (totalBytes > MAX_BULK_UPLOAD_BYTES) {
+      cleanupTempFiles();
+      return res.status(400).json({
+        error: `Upload too large — the Excel/CSV and images ZIP combined must be under ${Math.round(MAX_BULK_UPLOAD_BYTES / (1024 * 1024))}MB`
+      });
+    }
+
     try {
       let zipReport = [];
       if (zipFile) {
-        zipReport = await extractImagesZip(zipFile.buffer);
+        zipReport = await extractImagesZip(zipFile.path);
       }
       const existingImageFiles = new Set(fs.readdirSync(imageUploadDir));
 
       const workbook = new ExcelJS.Workbook();
       const isCsv = file.originalname.toLowerCase().endsWith('.csv');
       if (isCsv) {
-        await workbook.csv.read(Readable.from(file.buffer));
+        await workbook.csv.readFile(file.path);
       } else {
-        await workbook.xlsx.load(file.buffer);
+        await workbook.xlsx.readFile(file.path);
       }
       const worksheet = workbook.worksheets[0];
       const rows = parseWorksheet(worksheet);
@@ -982,6 +1015,10 @@ router.post(
       return res.json({ summary, report, zipReport });
     } catch (err) {
       return res.status(500).json({ error: err.message });
+    } finally {
+      // Temp copies on disk (see diskUpload above) — clean up regardless of
+      // outcome so a 500MB upload doesn't linger in /tmp after every run.
+      cleanupTempFiles();
     }
   }
 );

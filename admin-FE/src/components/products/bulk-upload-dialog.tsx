@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Download } from "lucide-react";
-import { apiFetch, apiDownload } from "@/lib/api";
+import { apiDownload, apiUpload, ApiError } from "@/lib/api";
 import type { BulkUploadResponse, BulkRemoveResponse } from "@/lib/types";
 
 interface BulkUploadDialogProps {
@@ -42,6 +42,7 @@ export function BulkUploadDialog({
   const [file, setFile] = useState<File | null>(null);
   const [imagesZip, setImagesZip] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [uploadResult, setUploadResult] = useState<BulkUploadResponse | null>(null);
   const [removeResult, setRemoveResult] = useState<BulkRemoveResponse | null>(null);
@@ -79,6 +80,7 @@ export function BulkUploadDialog({
   const handleSubmit = async () => {
     if (!file) return;
     setUploading(true);
+    setUploadProgress(0);
     setUploadResult(null);
     setRemoveResult(null);
     try {
@@ -87,9 +89,10 @@ export function BulkUploadDialog({
 
       if (mode === "upload") {
         if (imagesZip) body.append("imagesZip", imagesZip);
-        const res = await apiFetch<BulkUploadResponse>(
+        const res = await apiUpload<BulkUploadResponse>(
           "/api/products/bulk-upload",
-          { method: "POST", body }
+          body,
+          setUploadProgress
         );
         setUploadResult(res);
         onUploaded();
@@ -110,9 +113,10 @@ export function BulkUploadDialog({
           );
         }
       } else {
-        const res = await apiFetch<BulkRemoveResponse>(
+        const res = await apiUpload<BulkRemoveResponse>(
           "/api/products/bulk-remove",
-          { method: "POST", body }
+          body,
+          setUploadProgress
         );
         setRemoveResult(res);
         onUploaded();
@@ -129,9 +133,18 @@ export function BulkUploadDialog({
         }
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload failed");
+      // A network-layer failure (status 0) carries specific fail-safe
+      // guidance from apiUpload — surface it with a longer toast duration
+      // since it's more than a one-line error, it's telling the admin what
+      // to do next (retry is safe, rows are matched by SKU not duplicated).
+      if (err instanceof ApiError && err.status === 0) {
+        toast.error(err.message, { duration: 8000 });
+      } else {
+        toast.error(err instanceof Error ? err.message : "Upload failed");
+      }
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -153,7 +166,7 @@ export function BulkUploadDialog({
           <DialogTitle>Mass upload products</DialogTitle>
           <DialogDescription>
             {mode === "upload"
-              ? "Upload the product listing Excel/CSV template. Existing SKUs are updated, new SKUs are created. Reference photos in the Image List column and upload them together as a ZIP below — filenames must match exactly."
+              ? "Upload the product listing Excel/CSV template. Existing SKUs are updated, new SKUs are created. Reference photos in the Image List column and upload them together as a ZIP below — filenames must match exactly. Up to 500MB combined."
               : "Upload a list of SKUs to remove. Products with order history are deactivated instead of permanently deleted, so order records stay intact."}
           </DialogDescription>
         </DialogHeader>
@@ -214,7 +227,24 @@ export function BulkUploadDialog({
               />
               <p className="text-xs text-muted-foreground">
                 PNG, JPG, JPEG, or WEBP only — other files inside the ZIP are
-                skipped and reported below.
+                skipped and reported below. Excel/CSV + ZIP combined must be
+                under 500MB.
+              </p>
+            </div>
+          )}
+
+          {uploading && (
+            <div className="flex flex-col gap-1.5">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-200"
+                  style={{ width: `${uploadProgress ?? 0}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {uploadProgress !== null && uploadProgress < 100
+                  ? `Uploading — ${uploadProgress}%`
+                  : "Processing on the server — this can take a moment for large files..."}
               </p>
             </div>
           )}
