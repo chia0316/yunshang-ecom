@@ -257,7 +257,7 @@ const ProductDetailPage: React.FC = () => {
                         alt={label}
                         className="w-full h-full object-contain"
                       />
-                      <span className="absolute inset-x-0 bottom-0 truncate bg-black/50 px-1 py-0.5 text-[10px] text-white">
+                      <span className="absolute inset-x-0 bottom-0 break-words bg-black/50 px-1 py-0.5 text-[10px] leading-tight text-white">
                         {label}
                       </span>
                     </button>
