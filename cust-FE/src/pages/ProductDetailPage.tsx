@@ -221,7 +221,7 @@ const ProductDetailPage: React.FC = () => {
                     <img
                       src={item.src}
                       alt={`${product.name} ${index + 1}`}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
                   )}
                 </button>
@@ -237,9 +237,11 @@ const ProductDetailPage: React.FC = () => {
               <div className="grid grid-cols-4 gap-4">
                 {filteredVariants.map((v) => {
                   const isCurrent = v.id === product.id;
-                  const label = v.variant_options
-                    ? Object.values(v.variant_options).join(', ')
-                    : v.sku;
+                  // SKU, not the variant option value — several siblings can
+                  // share the same option label (e.g. multiple "Champagne"
+                  // colorways within one material), so the label alone
+                  // doesn't tell them apart; the SKU always does.
+                  const label = v.sku;
                   return (
                     <button
                       key={v.id}
@@ -253,7 +255,7 @@ const ProductDetailPage: React.FC = () => {
                       <img
                         src={getProductImageUrl(v.image_filenames[0] || product.image_filenames[0])}
                         alt={label}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                       <span className="absolute inset-x-0 bottom-0 truncate bg-black/50 px-1 py-0.5 text-[10px] text-white">
                         {label}
