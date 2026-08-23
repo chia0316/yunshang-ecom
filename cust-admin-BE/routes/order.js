@@ -4,6 +4,7 @@ const { body } = require('express-validator');
 const { Op } = require('sequelize');
 const ExcelJS = require('exceljs');
 
+const db = require('../database/connection');
 const Order = require('../productModels/Order.model');
 const OrderDetail = require('../productModels/OrderDetail.model');
 const OrderDelivery = require('../productModels/OrderDelivery.model');
@@ -26,6 +27,12 @@ const withVariantLabel = (name, variantOptions) => {
   if (!variantOptions || Object.keys(variantOptions).length === 0) return name;
   return `${name} — ${Object.values(variantOptions).join(', ')}`;
 };
+
+// Mirrors ENABLED_PAYMENT_METHODS in cust-FE/src/pages/CheckoutPage.tsx, not
+// the full Payment.method ENUM — NETS/Card are defined there for a future
+// gateway but aren't offered to customers yet, so an order claiming one of
+// them today is bogus, not a legitimate checkout.
+const ALLOWED_PAYMENT_METHODS = ['PayNow', 'Cash'];
 
 // Shared by the order list and the Excel export — same status/search/date
 // filters should apply to both.
@@ -313,7 +320,11 @@ router.post('/', authenticate, async (req, res) => {
       .isLength({ max: 255, min: 0 })
       .optional({ nullable: true })
       .withMessage('Remarks cannot exceed 255 characters'),
-    body('orderDetails_list').exists().withMessage('Order details cannot be empty')
+    body('orderDetails_list').exists().withMessage('Order details cannot be empty'),
+    body('paymentMethod')
+      .exists()
+      .isIn(ALLOWED_PAYMENT_METHODS)
+      .withMessage(`paymentMethod must be one of ${ALLOWED_PAYMENT_METHODS.join(', ')}`)
   ]);
   if (!isValid) {
     return;
@@ -352,43 +363,78 @@ router.post('/', authenticate, async (req, res) => {
       appliedCouponCode = result.coupon.code;
     }
 
-    const newOrder = await Order.create({
-      user_id: req.userId,
-      total_price: Math.max(Number(total_price) - discountAmount, 0),
-      coupon_code: appliedCouponCode,
-      discount_amount: appliedCouponCode ? discountAmount : null,
-      status: 'pending'
+    const finalTotal = Math.max(Number(total_price) - discountAmount, 0);
+
+    // Order + its delivery/line-items + its Payment record are created
+    // together in one transaction, not as separate frontend requests — two
+    // sequential requests left a window where the order call could succeed
+    // and the payment call could fail (dropped connection, closed tab), and
+    // the frontend would never even learn the order's id to clean it up,
+    // leaving an orphaned pending order with no payment behind while the
+    // customer just retried and got a second, complete order.
+    const { newOrder, payment } = await db.transaction(async (t) => {
+      const newOrder = await Order.create(
+        {
+          user_id: req.userId,
+          total_price: finalTotal,
+          coupon_code: appliedCouponCode,
+          discount_amount: appliedCouponCode ? discountAmount : null,
+          status: 'pending'
+        },
+        { transaction: t }
+      );
+
+      await newOrder.update(
+        { order_number: formatOrderNumber(newOrder.id, newOrder.created_at) },
+        { transaction: t }
+      );
+
+      if (appliedCouponCode) {
+        await Coupon.increment('used_count', {
+          where: { code: appliedCouponCode },
+          transaction: t
+        });
+      }
+
+      await OrderDelivery.create(
+        {
+          order_id: newOrder.id,
+          first_name: firstName,
+          last_name: lastName,
+          delivery_address: deliveryAddress,
+          delivery_postal: deliveryPostal,
+          delivery_date: deliveryDate || null,
+          delivery_slot: deliverySlot || null,
+          contact,
+          remarks
+        },
+        { transaction: t }
+      );
+
+      await OrderDetail.bulkCreate(
+        orderDetails_list.map((item) => ({
+          order_id: newOrder.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: item.price,
+          remarks: item.remarks || null
+        })),
+        { transaction: t }
+      );
+
+      const payment = await Payment.create(
+        {
+          order_id: newOrder.id,
+          amount: finalTotal,
+          currency: 'SGD',
+          method: paymentMethod,
+          status: 'pending'
+        },
+        { transaction: t }
+      );
+
+      return { newOrder, payment };
     });
-
-    await newOrder.update({
-      order_number: formatOrderNumber(newOrder.id, newOrder.created_at)
-    });
-
-    if (appliedCouponCode) {
-      await Coupon.increment('used_count', { where: { code: appliedCouponCode } });
-    }
-
-    await OrderDelivery.create({
-      order_id: newOrder.id,
-      first_name: firstName,
-      last_name: lastName,
-      delivery_address: deliveryAddress,
-      delivery_postal: deliveryPostal,
-      delivery_date: deliveryDate || null,
-      delivery_slot: deliverySlot || null,
-      contact,
-      remarks
-    });
-
-    await OrderDetail.bulkCreate(
-      orderDetails_list.map((item) => ({
-        order_id: newOrder.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        price: item.price,
-        remarks: item.remarks || null
-      }))
-    );
 
     const userData = await User.findByPk(req.userId);
     mailer.sendOrderConfirmationMail(userData, newOrder, orderDetails_list, {
@@ -397,7 +443,7 @@ router.post('/', authenticate, async (req, res) => {
       delivery: { firstName, lastName, address: deliveryAddress, postal: deliveryPostal, contact }
     });
 
-    return res.status(201).json({ order: newOrder });
+    return res.status(201).json({ order: newOrder, payment });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

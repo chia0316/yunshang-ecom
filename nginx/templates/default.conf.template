@@ -13,6 +13,20 @@
 # upstream isn't up yet or gets recreated later.
 resolver 127.0.0.11 valid=10s;
 
+# Catch-all for any hostname that isn't ${DOMAIN} (e.g. other domains
+# that happen to point their DNS at this server's IP, or raw IP access). 
+# Without this, nginx treats the single named server block below as the 
+# implicit default for port 80/443, meaning unrecognized hostnames still 
+# get served our content (and our TLS cert, mismatched) instead of being 
+# rejected. 
+
+server { listen 80 default_server;
+listen 443 ssl default_server;
+server_name _;
+ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+return 444; }
+
 # yunshang.com.sg / www.yunshang.com.sg — redirect to HTTPS, except for the
 # ACME HTTP-01 challenge path certbot needs to issue/renew the certificate.
 server {

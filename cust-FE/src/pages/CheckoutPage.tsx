@@ -281,8 +281,16 @@ const CheckoutPage: React.FC = () => {
   // openPayNowGate (PayNow needs the order — and its order_number — created
   // up front, before the QR even shows, so there's a real reference number
   // to display and to type into the PayNow transfer).
+  //
+  // The order and its Payment record are created together in one backend
+  // request/transaction, not two separate calls — a network drop or closed
+  // tab between two sequential requests used to leave an order behind with
+  // no payment (and no way for the frontend to even learn its id to clean
+  // it up), which is how orders like this ended up looking duplicated: the
+  // first attempt silently orphaned an order, and the customer's retry
+  // created a second, complete one.
   const createOrder = async (): Promise<{ order: Order; paymentId: number }> => {
-    const orderRes = await apiFetch<{ order: Order }>('/api/orders', {
+    const orderRes = await apiFetch<{ order: Order; payment: { id: number } }>('/api/orders', {
       method: 'POST',
       body: JSON.stringify({
         // Pre-discount total (subtotal + shipping) — the backend re-validates
@@ -302,23 +310,11 @@ const CheckoutPage: React.FC = () => {
           price: item.price,
           name: item.name,
         })),
-        // Informational only (used for the confirmation email content) —
-        // the actual Payment record below is the source of truth.
         paymentMethod,
       }),
     });
 
-    const payment = await apiFetch<{ id: number }>('/api/payments', {
-      method: 'POST',
-      body: JSON.stringify({
-        order_id: orderRes.order.id,
-        amount: total,
-        currency: 'SGD',
-        method: paymentMethod,
-      }),
-    });
-
-    return { order: orderRes.order, paymentId: payment.id };
+    return { order: orderRes.order, paymentId: orderRes.payment.id };
   };
 
   const placeOrder = async () => {
