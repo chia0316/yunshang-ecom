@@ -28,7 +28,7 @@ function App() {
         <WishlistProvider>
           <Router>
             <div className="min-h-screen bg-white">
-              <Toaster position="top-right" richColors closeButton />
+              <Toaster position="top-right" richColors closeButton duration={5000} />
               <Header />
               <main>
                 <Routes>

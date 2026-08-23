@@ -152,7 +152,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     const stored = localStorage.getItem(STORAGE_KEY);
-    const guestItems: CartItem[] = stored ? JSON.parse(stored).items || [] : [];
+    const parsedGuestCart = stored ? JSON.parse(stored) : null;
+    const guestItems: CartItem[] = parsedGuestCart?.items || [];
+    // Carries across both a brand-new signup mid-checkout and an existing
+    // user logging in with a guest cart still applied — either way, a
+    // coupon they'd already typed in shouldn't silently vanish just
+    // because they authenticated.
+    const guestCouponCode: string | null = parsedGuestCart?.couponCode || null;
 
     const sync = async () => {
       if (guestItems.length > 0) {
@@ -167,7 +173,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const res = await apiFetch<{ items: ServerCartRow[] }>('/api/cart');
         const items = res.items.map(toCartItem);
-        dispatch({ type: 'HYDRATE', payload: { items, total: calcTotal(items), couponCode: null } });
+        dispatch({
+          type: 'HYDRATE',
+          payload: { items, total: calcTotal(items), couponCode: guestCouponCode }
+        });
       } catch {
         // Leave state as-is if the account cart couldn't be fetched.
       }

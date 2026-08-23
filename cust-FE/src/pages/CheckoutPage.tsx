@@ -762,8 +762,13 @@ const CheckoutPage: React.FC = () => {
                       Payment status: <strong className="text-terracotta-600">Pending — verifying your PayNow payment</strong>
                     </p>
                     <p className="text-sm text-gray-600 mt-2">
-                      Thanks for confirming your transfer of ${total.toFixed(2)}. We&apos;ll confirm your
-                      order once payment is received on our end.
+                      {/* Not the local `total` — clearCart() already ran by
+                          this point, so cart-derived values have reset to
+                          an empty cart's defaults (just the flat shipping
+                          fee). The order's own stored total is what was
+                          actually charged. */}
+                      Thanks for confirming your transfer of ${Number(placedOrder.total_price).toFixed(2)}.
+                      We&apos;ll confirm your order once payment is received on our end.
                     </p>
                   </>
                 ) : (
