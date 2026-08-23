@@ -437,11 +437,13 @@ router.post('/', authenticate, async (req, res) => {
     });
 
     const userData = await User.findByPk(req.userId);
+    const company = getCompanySettings();
     mailer.sendOrderConfirmationMail(userData, newOrder, orderDetails_list, {
       paymentMethod,
-      company: getCompanySettings(),
+      company,
       delivery: { firstName, lastName, address: deliveryAddress, postal: deliveryPostal, contact }
     });
+    mailer.sendOrderNotificationMail(newOrder, userData, orderDetails_list, paymentMethod, company);
 
     return res.status(201).json({ order: newOrder, payment });
   } catch (error) {

@@ -196,6 +196,64 @@ const sendOrderConfirmationMail = (
   });
 };
 
+// Admin-facing counterpart to sendOrderConfirmationMail above — same
+// emailLayout card/receipt design as the customer email (not the plain
+// <ul> style sendEnquiryNotificationMail uses), just with admin-relevant
+// content (who ordered, payment method) in place of delivery instructions.
+const sendOrderNotificationMail = (order, user, orderDetailsList, paymentMethod, company = {}) => {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail) return;
+
+  const orderRef = order.order_number || `#${order.id}`;
+  const orderDate = new Date(order.created_at).toLocaleDateString('en-SG', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+  const customerName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username;
+  const safeMethod = PAYMENT_METHODS.includes(paymentMethod) ? paymentMethod : undefined;
+
+  const itemsRows = orderDetailsList
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #f0efed;">
+            <div style="font-weight:600;font-size:14px;">${item.name}</div>
+            <div style="color:#78716c;font-size:13px;">Qty ${item.quantity}</div>
+          </td>
+          <td style="padding:10px 0;border-bottom:1px solid #f0efed;text-align:right;white-space:nowrap;font-size:14px;">
+            ${money(Number(item.price) * item.quantity)}
+          </td>
+        </tr>
+      `
+    )
+    .join('');
+
+  const bodyHtml = `
+    <h1 style="margin:0 0 4px;font-size:20px;">New order received</h1>
+    <p style="margin:0 0 24px;color:#78716c;font-size:14px;">Order ${orderRef} · ${orderDate}</p>
+    <div style="margin-bottom:20px;padding:16px;background:#faf9f8;border-radius:8px;font-size:14px;">
+      <p style="margin:0 0 4px;"><b>Customer:</b> ${customerName} (${user.email})</p>
+      ${safeMethod ? `<p style="margin:0;"><b>Payment method:</b> ${safeMethod}</p>` : ''}
+    </div>
+    <table role="presentation" width="100%" style="border-collapse:collapse;">
+      ${itemsRows}
+    </table>
+    <table role="presentation" width="100%" style="margin-top:16px;font-size:14px;">
+      <tr>
+        <td style="padding:10px 0 0;font-weight:700;border-top:1px solid #e7e5e4;">Total</td>
+        <td style="padding:10px 0 0;text-align:right;font-weight:700;border-top:1px solid #e7e5e4;">${money(Number(order.total_price))}</td>
+      </tr>
+    </table>
+  `;
+
+  send({
+    to: adminEmail,
+    subject: `New Order Received from ${customerName}`,
+    html: emailLayout(bodyHtml, company)
+  });
+};
+
 const sendOrderStatusUpdateMail = (user, order, company = {}) => {
   const orderRef = order.order_number || `#${order.id}`;
   const bodyHtml = `
@@ -293,6 +351,7 @@ module.exports = {
   sendWelcomeMail,
   sendPasswordResetMail,
   sendOrderConfirmationMail,
+  sendOrderNotificationMail,
   sendOrderStatusUpdateMail,
   sendDeliveryScheduledMail,
   sendEnquiryNotificationMail,
