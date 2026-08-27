@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, MapPin, Phone, Mail as MailIcon } from 'lucide-react';
-import { apiFetch } from '../lib/api';
+import { apiFetch, ApiError } from '../lib/api';
 
 type EnquiryType = 'appointment' | 'enquiry' | 'other';
 
@@ -48,7 +48,27 @@ const VisitUsPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  // Which preferred_time slots are already booked, keyed by date — fetched
+  // for the whole booking window once so switching the date dropdown
+  // doesn't need a round trip. Bumped (via availabilityRefreshKey) after a
+  // booking attempt loses a race on a slot (409), so the one that was just
+  // taken immediately shows as struck through instead of staying pickable.
+  const [takenByDate, setTakenByDate] = useState<Record<string, string[]>>({});
+  const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0);
   const appointmentDateBounds = getAppointmentDateBounds();
+
+  useEffect(() => {
+    if (formData.type !== 'appointment') return;
+    apiFetch<Record<string, string[]>>(
+      `/api/enquiries/appointment-availability?from=${appointmentDateBounds.min}&to=${appointmentDateBounds.max}`,
+      { auth: false }
+    )
+      .then(setTakenByDate)
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.type, availabilityRefreshKey]);
+
+  const takenTimes = new Set(takenByDate[formData.preferred_date] || []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -75,6 +95,10 @@ const VisitUsPage: React.FC = () => {
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit, please try again');
+      if (err instanceof ApiError && err.status === 409) {
+        setFormData((prev) => ({ ...prev, preferred_time: '' }));
+        setAvailabilityRefreshKey((k) => k + 1);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -174,7 +198,9 @@ const VisitUsPage: React.FC = () => {
                       min={appointmentDateBounds.min}
                       max={appointmentDateBounds.max}
                       value={formData.preferred_date}
-                      onChange={handleChange}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, preferred_date: e.target.value, preferred_time: '' }))
+                      }
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     />
                     <p className="text-xs text-gray-500 mt-1">
@@ -190,11 +216,20 @@ const VisitUsPage: React.FC = () => {
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     >
                       <option value="">Select a time</option>
-                      {TIME_SLOT_OPTIONS.map((slot) => (
-                        <option key={slot} value={slot}>
-                          {slot}
-                        </option>
-                      ))}
+                      {TIME_SLOT_OPTIONS.map((slot) => {
+                        const isTaken = takenTimes.has(slot);
+                        return (
+                          <option
+                            key={slot}
+                            value={slot}
+                            disabled={isTaken}
+                            style={isTaken ? { textDecoration: 'line-through', color: '#9ca3af' } : undefined}
+                          >
+                            {slot}
+                            {isTaken ? ' (Full)' : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                   <div className="md:col-span-2">

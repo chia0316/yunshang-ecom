@@ -63,7 +63,12 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
         window.location.href = '/login';
       }
     }
-    throw new ApiError(data?.error || 'Request failed', res.status, data?.fields);
+    // Most routes respond with { error: '...' } on failure, but express-
+    // validator failures (see utils/validator.js on the backend) respond
+    // with { errors: ['...', ...] } instead — without this fallback, every
+    // validation failure on a public form silently collapsed to the generic
+    // "Request failed" message below, losing the actual reason.
+    throw new ApiError(data?.error || data?.errors?.[0] || 'Request failed', res.status, data?.fields);
   }
 
   return data as T;

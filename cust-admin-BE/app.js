@@ -22,6 +22,8 @@ const settingsRouter = require('./routes/settings');
 const couponsRouter = require('./routes/coupons');
 const enquiriesRouter = require('./routes/enquiries');
 const cartRouter = require('./routes/cart');
+const qrCodesRouter = require('./routes/qrcodes');
+const notificationsRouter = require('./routes/notifications');
 
 const app = express();
 app.use(cors());
@@ -36,6 +38,11 @@ app.use('/api/static/images', express.static(path.join(__dirname, 'public/images
 // Serves product videos placed in public/videos by filename — counterpart to
 // uploading via /api/products/upload-video.
 app.use('/api/static/videos', express.static(path.join(__dirname, 'public/videos')));
+
+// Serves QR code door-entry images placed in public/qrcodes by filename —
+// embedded in the appointment confirmation email (see mailer.js
+// sendAppointmentQrCodeMail).
+app.use('/api/static/qrcodes', express.static(path.join(__dirname, 'public/qrcodes')));
 
 // Every route lives under /api/ now — consistent naming, and it's what
 // lets nginx proxy /api/ straight through to this app with no path
@@ -58,6 +65,8 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/coupons', couponsRouter);
 app.use('/api/enquiries', enquiriesRouter);
 app.use('/api/cart', cartRouter);
+app.use('/api/qrcodes', qrCodesRouter);
+app.use('/api/admin/notifications', notificationsRouter);
 
 app.get('/', (req, res) => res.status(200).send({ message: 'Alive!' }));
 

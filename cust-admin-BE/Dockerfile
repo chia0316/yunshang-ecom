@@ -7,10 +7,10 @@ RUN npm ci --omit=dev
 
 COPY . .
 
-# Product photos/videos and the docker-entrypoint migration step both need
-# these to exist; the volume mounts in docker-compose.yml persist them across
-# restarts.
-RUN mkdir -p public/images public/videos
+# Product photos/videos/QR codes and the docker-entrypoint migration step
+# both need these to exist; the volume mounts in docker-compose.yml persist
+# them across restarts.
+RUN mkdir -p public/images public/videos public/qrcodes
 
 EXPOSE 8090
 

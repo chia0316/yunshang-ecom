@@ -9,6 +9,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { NotificationBell } from "@/components/notification-bell";
 import { useAuth } from "@/lib/auth-context";
 
 export default function DashboardLayout({
@@ -43,6 +44,9 @@ export default function DashboardLayout({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-icon.png" alt="Casa Yun" className="h-6 w-6" />
           <p className="text-sm font-medium">Casa Yun Admin</p>
+          <div className="ml-auto mr-2">
+            <NotificationBell />
+          </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
           {children}

@@ -92,6 +92,10 @@ export function getProductVideoUrl(filename: string): string {
   return `${API_URL}/api/static/videos/${filename}`;
 }
 
+export function getQrCodeImageUrl(filename: string): string {
+  return `${API_URL}/api/static/qrcodes/${filename}`;
+}
+
 // For endpoints that return a file (e.g. Excel export) instead of JSON —
 // fetches with the auth header apiFetch would normally add, then triggers
 // a browser download of the response body.

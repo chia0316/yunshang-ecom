@@ -7,7 +7,7 @@ const Enquiry = require('../productModels/Enquiry.model');
 const db = require('../database/connection');
 
 const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'];
-const ENQUIRY_STATUSES = ['new', 'contacted', 'closed'];
+const ENQUIRY_STATUSES = ['new', 'contacted', 'confirmed', 'closed'];
 const LOW_STOCK_THRESHOLD = 5;
 
 // Dashboard-glance numbers across every module — deliberately separate from

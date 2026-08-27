@@ -14,6 +14,7 @@ const Category = require('../productModels/Category.model');
 const ProductFeaturedTag = require('../productModels/ProductFeaturedTag.model');
 const { authenticate, attachAdminFlag } = require('../utils/authenticator');
 const { multiImageUpload, videoUpload, imageUploadDir, videoUploadDir } = require('../uploads/upload');
+const { extractImagesZip } = require('../utils/zipImageExtractor');
 
 // Bulk-remove's file is just a SKU list, always tiny — memory storage is
 // fine there. Bulk-upload's images ZIP can be large, so it gets its own
@@ -190,68 +191,26 @@ const parseWorksheet = (worksheet) => {
   return rows;
 };
 
-// Extracts an uploaded images ZIP straight into public/images. Every entry
-// is written using only its basename (never the raw zip path) so a
-// maliciously-crafted entry name like "../../etc/passwd" can't escape the
-// upload directory (zip-slip). Returns a report of anything skipped
-// (unsupported format, oversized when uncompressed) or overwritten so the
-// admin can see exactly what happened, not just a final file count.
-const extractImagesZip = async (zipFilePath) => {
-  const zip = new AdmZip(zipFilePath);
-  const zipReport = [];
-
-  for (const entry of zip.getEntries()) {
-    if (entry.isDirectory) continue;
-    const filename = path.basename(entry.entryName);
-    if (!filename) continue;
-
-    // macOS's Finder "Compress" adds a __MACOSX/ folder full of ._-prefixed
-    // AppleDouble metadata sidecar files (one per real file, same name and
-    // extension) plus .DS_Store — none of these are real images, but they'd
-    // otherwise pass the extension check below and pollute the gallery.
-    if (entry.entryName.startsWith('__MACOSX/') || filename.startsWith('._') || filename === '.DS_Store') {
-      continue;
-    }
-
-    const ext = path.extname(filename).toLowerCase();
-    if (!ALLOWED_IMAGE_EXTENSIONS.includes(ext)) {
-      zipReport.push({
-        filename,
-        status: 'skipped',
-        reason: `Unsupported format${ext ? ` (${ext})` : ''} — only PNG, JPG, JPEG, or WEBP allowed`
-      });
-      continue;
-    }
-
-    if (entry.header.size > MAX_ZIP_ENTRY_BYTES) {
-      zipReport.push({
-        filename,
-        status: 'skipped',
-        reason: `File too large uncompressed (max ${Math.round(MAX_ZIP_ENTRY_BYTES / (1024 * 1024))}MB)`
-      });
-      continue;
-    }
-
-    const targetPath = path.join(imageUploadDir, filename);
-    if (fs.existsSync(targetPath)) {
+// Extracts a product bulk-upload images ZIP straight into public/images —
+// thin product-specific wrapper around the shared extractor (zip-slip guard,
+// extension whitelist, decompression-bomb cap all live there now, shared
+// with QR code bulk-upload in routes/qrcodes.js). Only the collision check
+// is product-specific: warn when a zip-extracted filename would overwrite an
+// image another SKU already references.
+const extractProductImagesZip = (zipFilePath) =>
+  extractImagesZip(zipFilePath, imageUploadDir, {
+    allowedExtensions: ALLOWED_IMAGE_EXTENSIONS,
+    maxEntryBytes: MAX_ZIP_ENTRY_BYTES,
+    checkCollision: async (filename) => {
       const usedBy = await Product.findAll({
         where: { image_filenames: { [Op.contains]: [filename] } },
         attributes: ['sku']
       });
-      if (usedBy.length > 0) {
-        zipReport.push({
-          filename,
-          status: 'overwritten',
-          reason: `Replaced an image already used by SKU(s): ${usedBy.map((p) => p.sku).join(', ')}`
-        });
-      }
+      return usedBy.length > 0
+        ? `Replaced an image already used by SKU(s): ${usedBy.map((p) => p.sku).join(', ')}`
+        : null;
     }
-
-    fs.writeFileSync(targetPath, entry.getData());
-  }
-
-  return zipReport;
-};
+  });
 
 router.get('/', attachAdminFlag, async (req, res) => {
   try {
@@ -866,7 +825,7 @@ router.post(
     try {
       let zipReport = [];
       if (zipFile) {
-        zipReport = await extractImagesZip(zipFile.path);
+        zipReport = await extractProductImagesZip(zipFile.path);
       }
       const existingImageFiles = new Set(fs.readdirSync(imageUploadDir));
 

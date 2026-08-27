@@ -54,9 +54,53 @@ const videoUpload = multer({
   }
 }).single('video');
 
+// QR code images live on local/VM disk under QR_UPLOAD_DIR (defaults to
+// public/qrcodes, served statically at /api/static/qrcodes by app.js) —
+// kept separate from product images since they're a distinct asset type
+// managed from Settings, not the product catalog.
+const qrDir = process.env.QR_UPLOAD_DIR || path.join(__dirname, '../public/qrcodes');
+fs.mkdirSync(qrDir, { recursive: true });
+
+// Spaces/parentheses/etc. in the original filename survive into the stored
+// one elsewhere in this file (product images/videos) and are fine there —
+// they're only ever rendered via a browser-parsed <img> tag, which is
+// lenient about unencoded spaces in a URL. QR images are also embedded in
+// an email (see mailer.js sendAppointmentQrCodeMail), where a mail client's
+// own image proxy is far less forgiving, so these get sanitized at upload
+// time rather than relying on every future reader to encode correctly.
+const sanitizeFilenamePart = (name) => name.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/-+/g, '-');
+
+const qrStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, qrDir),
+  filename: (req, file, cb) => {
+    cb(
+      null,
+      sanitizeFilenamePart(path.basename(file.originalname, path.extname(file.originalname))) +
+        '-' +
+        Date.now() +
+        path.extname(file.originalname)
+    );
+  }
+});
+
+const ALLOWED_QR_IMAGE_MIMETYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+const qrImageUpload = multer({
+  storage: qrStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!ALLOWED_QR_IMAGE_MIMETYPES.includes(file.mimetype)) {
+      return cb(new Error('QR code image must be PNG, JPG, or WEBP'));
+    }
+    cb(null, true);
+  }
+}).single('image');
+
 module.exports = {
   multiImageUpload,
   videoUpload,
+  qrImageUpload,
   imageUploadDir: uploadDir,
-  videoUploadDir: videoDir
+  videoUploadDir: videoDir,
+  qrUploadDir: qrDir
 };

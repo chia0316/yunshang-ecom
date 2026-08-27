@@ -42,12 +42,18 @@ services:
       GST_ENABLED: ${GST_ENABLED}
       GST_RATE: ${GST_RATE}
       STOREFRONT_URL: https://${DOMAIN}
+      # This backend's own public origin — used to build the absolute QR
+      # code image URL embedded in the appointment confirmation email (see
+      # utils/mailer.js sendAppointmentQrCodeMail). Same domain as
+      # STOREFRONT_URL above since nginx serves everything from one host.
+      BACKEND_PUBLIC_URL: https://${DOMAIN}
     # Not published to the host — reachable only from other containers, at
     # backend:8090, via nginx's /api/ proxy below. Nothing external needs
     # to reach it directly anymore.
     volumes:
       - backend_images:/app/public/images
       - backend_videos:/app/public/videos
+      - backend_qrcodes:/app/public/qrcodes
 
   admin-fe:
     build:
@@ -105,5 +111,6 @@ volumes:
   pgdata:
   backend_images:
   backend_videos:
+  backend_qrcodes:
   certbot_etc:
   certbot_www:

@@ -39,9 +39,10 @@ const ORDER_STATUS_VARIANT: Record<
   cancelled: "destructive",
 };
 
-const ENQUIRY_STATUS_VARIANT: Record<EnquiryStatus, "info" | "warning" | "success"> = {
+const ENQUIRY_STATUS_VARIANT: Record<EnquiryStatus, "info" | "warning" | "success" | "secondary"> = {
   new: "info",
   contacted: "warning",
+  confirmed: "secondary",
   closed: "success",
 };
 

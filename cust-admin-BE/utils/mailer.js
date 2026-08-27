@@ -25,16 +25,24 @@ const send = (mailOptions) => {
 
 const money = (value) => `$${Number(value).toFixed(2)}`;
 
-// Shared receipt-style wrapper for every order-related email — a plain
-// card with a dark brand header and a light footer carrying the company's
-// real contact details (from Settings), so order emails read like an
-// ecommerce receipt instead of a plain-text notice.
+// The storefront (cust-FE) serves its own public/ assets straight off the
+// same domain nginx puts everything behind — same assumption STOREFRONT_URL
+// already carries elsewhere (e.g. the password-reset link) — so the logo
+// doesn't need its own copy living in this backend.
+const STOREFRONT_URL = process.env.STOREFRONT_URL || 'http://localhost:5173';
+const LOGO_URL = `${STOREFRONT_URL}/logo-light.png`;
+
+// Shared receipt-style wrapper for every email — a plain card with a dark
+// brand header (the actual logo, not just styled text) and a light footer
+// carrying the company's real contact details (from Settings), so every
+// email reads like one consistent piece of branded mail, not a mix of
+// receipt-style and plain-text notices.
 const emailLayout = (bodyHtml, company = {}) => `
   <div style="background:#f5f4f2;padding:32px 16px;font-family:Helvetica,Arial,sans-serif;color:#1c1917;">
     <table role="presentation" width="100%" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e7e5e4;">
       <tr>
         <td style="background:#1c1917;padding:24px 32px;text-align:center;">
-          <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:0.5px;">CASA YUN</span>
+          <img src="${LOGO_URL}" alt="Casa Yun" height="28" style="height:28px;width:auto;display:inline-block;border:0;" />
         </td>
       </tr>
       <tr>
@@ -311,39 +319,104 @@ const sendDeliveryScheduledMail = (user, order, delivery, company = {}) => {
 
 const ENQUIRY_TYPE_LABELS = {
   appointment: 'Appointment Booking',
+  appointment_no_sales: 'Appointment Booking',
   enquiry: 'Enquiry',
   other: 'Other'
 };
+const APPOINTMENT_TYPES = ['appointment', 'appointment_no_sales'];
 
-const sendEnquiryNotificationMail = (enquiry) => {
+const sendEnquiryNotificationMail = (enquiry, company = {}) => {
   const adminEmail = process.env.ADMIN_EMAIL;
   if (!adminEmail) return;
+
+  const bodyHtml = `
+    <h1 style="margin:0 0 20px;font-size:20px;">New ${ENQUIRY_TYPE_LABELS[enquiry.type] || 'enquiry'} from ${enquiry.name}</h1>
+    <div style="padding:16px;background:#faf9f8;border-radius:8px;font-size:14px;">
+      <p style="margin:0 0 4px;"><b>Type:</b> ${ENQUIRY_TYPE_LABELS[enquiry.type] || enquiry.type}</p>
+      <p style="margin:0 0 4px;"><b>Name:</b> ${enquiry.name}</p>
+      <p style="margin:0 0 4px;"><b>Email:</b> ${enquiry.email}</p>
+      ${enquiry.mobile ? `<p style="margin:0 0 4px;"><b>Mobile:</b> ${enquiry.mobile}</p>` : ''}
+      ${enquiry.preferred_date ? `<p style="margin:0 0 4px;"><b>Preferred date:</b> ${enquiry.preferred_date}</p>` : ''}
+      ${enquiry.preferred_time ? `<p style="margin:0 0 4px;"><b>Preferred time:</b> ${enquiry.preferred_time}</p>` : ''}
+      ${APPOINTMENT_TYPES.includes(enquiry.type) ? `<p style="margin:0;"><b>Sales person requested:</b> ${enquiry.requires_sales_person ? 'Yes (subject to availability)' : 'No'}</p>` : ''}
+    </div>
+    ${enquiry.message ? `<p style="margin:20px 0 0;font-size:14px;"><b>Message:</b><br>${enquiry.message}</p>` : ''}
+  `;
+
   send({
     to: adminEmail,
     subject: `New ${ENQUIRY_TYPE_LABELS[enquiry.type] || 'enquiry'} from ${enquiry.name}`,
-    html: `
-      <p>New submission from the website contact form:</p>
-      <ul>
-        <li><b>Type:</b> ${ENQUIRY_TYPE_LABELS[enquiry.type] || enquiry.type}</li>
-        <li><b>Name:</b> ${enquiry.name}</li>
-        <li><b>Email:</b> ${enquiry.email}</li>
-        ${enquiry.mobile ? `<li><b>Mobile:</b> ${enquiry.mobile}</li>` : ''}
-        ${enquiry.preferred_date ? `<li><b>Preferred date:</b> ${enquiry.preferred_date}</li>` : ''}
-        ${enquiry.preferred_time ? `<li><b>Preferred time:</b> ${enquiry.preferred_time}</li>` : ''}
-        ${enquiry.type === 'appointment' ? `<li><b>Sales person requested:</b> ${enquiry.requires_sales_person ? 'Yes (subject to availability)' : 'No'}</li>` : ''}
-      </ul>
-      ${enquiry.message ? `<p><b>Message:</b> ${enquiry.message}</p>` : ''}
-    `
+    html: emailLayout(bodyHtml, company)
   });
 };
 
-const sendEnquiryConfirmationMail = (enquiry) => {
+const sendEnquiryConfirmationMail = (enquiry, company = {}) => {
+  const bodyHtml = `
+    <h1 style="margin:0 0 4px;font-size:20px;">Thanks for reaching out, ${enquiry.name}!</h1>
+    <p style="margin:0;font-size:14px;">We've received your ${
+      ENQUIRY_TYPE_LABELS[enquiry.type]?.toLowerCase() || 'request'
+    } and will get back to you shortly.</p>
+  `;
+
   send({
     to: enquiry.email,
     subject: 'We received your request — Casa Yun',
-    html: `<p>Hi ${enquiry.name},</p><p>Thanks for reaching out to Casa Yun. We've received your ${
-      ENQUIRY_TYPE_LABELS[enquiry.type]?.toLowerCase() || 'request'
-    } and will get back to you shortly.</p>`
+    html: emailLayout(bodyHtml, company)
+  });
+};
+
+const formatDate = (value) =>
+  new Date(value).toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' });
+
+// Sent when admin confirms an appointment (routes/enquiries.js POST
+// /:id/confirm) — embeds the currently-active shared QR code as an absolute
+// image URL, the same static-file convention product/video uploads already
+// use (see app.js's /api/static/qrcodes mount), since this is the first
+// email in the codebase to embed an image at all (every other email either
+// has none or takes a fully-formed link from its caller, e.g.
+// sendPasswordResetMail's resetLink). BACKEND_PUBLIC_URL is this backend's
+// own public origin — distinct from STOREFRONT_URL, which points at cust-FE.
+const sendAppointmentQrCodeMail = (enquiry, qrCode, company = {}) => {
+  const backendUrl = process.env.BACKEND_PUBLIC_URL || 'http://localhost:8090';
+  // Filenames can contain spaces/parentheses (preserved from whatever the
+  // admin originally uploaded — see uploads/upload.js) — email clients
+  // proxy/rewrite image URLs far less forgivingly than a browser parsing an
+  // <img> tag on a live page, so an un-encoded space breaks the image here
+  // even though the same raw filename renders fine in the admin panel.
+  const imageUrl = `${backendUrl}/api/static/qrcodes/${encodeURIComponent(qrCode.image_filename)}`;
+
+  const appointmentHtml = enquiry.preferred_date
+    ? `<p style="margin:0 0 24px;color:#78716c;font-size:14px;">${formatDate(enquiry.preferred_date)}${enquiry.preferred_time ? ` · ${enquiry.preferred_time}` : ''}</p>`
+    : '';
+
+  // Purely informational — restates the same "subject to availability"
+  // caveat the customer already saw on the booking form. If a sales person
+  // can't actually be arranged for the slot, that's handled by a phone call
+  // from the team, not by anything in the app (no in-app rescheduling flow).
+  const salesPersonHtml = enquiry.requires_sales_person
+    ? `<p style="margin:0 0 20px;font-size:14px;">You've requested a sales person to assist during your visit — this is subject to availability. If we're unable to arrange one for your slot, our team will call you to arrange this separately.</p>`
+    : '';
+
+  const bodyHtml = `
+    <h1 style="margin:0 0 4px;font-size:20px;">Your appointment is confirmed, ${enquiry.name}!</h1>
+    ${appointmentHtml}
+    <p style="margin:0 0 16px;font-size:14px;">Scan the QR code below at our entry gate to let yourself in for your visit.</p>
+    <div style="text-align:center;margin:0 0 12px;">
+      <img src="${imageUrl}" alt="Entry gate QR code" style="max-width:240px;width:100%;border-radius:8px;border:1px solid #e7e5e4;" />
+    </div>
+    <p style="margin:0 0 20px;text-align:center;font-size:12px;">
+      <a href="${imageUrl}" style="color:#78716c;">If the code above doesn't load, view it here</a>
+    </p>
+    ${salesPersonHtml}
+    <div style="padding:16px;background:#faf9f8;border-radius:8px;font-size:14px;">
+      <p style="margin:0;color:#78716c;">This code is for your visit only — please don't share or forward it to anyone else.</p>
+    </div>
+  `;
+
+  send({
+    to: enquiry.email,
+    subject: 'Your Casa Yun appointment is confirmed',
+    html: emailLayout(bodyHtml, company)
   });
 };
 
@@ -355,5 +428,6 @@ module.exports = {
   sendOrderStatusUpdateMail,
   sendDeliveryScheduledMail,
   sendEnquiryNotificationMail,
-  sendEnquiryConfirmationMail
+  sendEnquiryConfirmationMail,
+  sendAppointmentQrCodeMail
 };

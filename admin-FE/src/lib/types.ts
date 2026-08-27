@@ -141,8 +141,10 @@ export interface Coupon {
   createdAt: string;
 }
 
-export type EnquiryType = "appointment" | "enquiry" | "other";
-export type EnquiryStatus = "new" | "contacted" | "closed";
+export type EnquiryType = "appointment" | "appointment_no_sales" | "enquiry" | "other";
+// 'confirmed' is only ever set via POST /api/enquiries/:id/confirm — never
+// selectable through the plain status dropdown (see enquiries/page.tsx).
+export type EnquiryStatus = "new" | "contacted" | "confirmed" | "closed";
 
 export interface Enquiry {
   id: number;
@@ -155,7 +157,37 @@ export interface Enquiry {
   requires_sales_person: boolean;
   message: string | null;
   status: EnquiryStatus;
+  qr_code_id: number | null;
+  qrcode?: { id: number; name: string } | null;
+  confirmed_at: string | null;
   createdAt: string;
+}
+
+export interface QrCode {
+  id: number;
+  name: string;
+  image_filename: string;
+  valid_from: string;
+  valid_until: string;
+  revoked_at: string | null;
+  createdAt: string;
+}
+
+export interface QrCodeBulkUploadReportRow {
+  row: number;
+  name: string;
+  status: "created" | "error";
+  message?: string;
+}
+
+export interface QrCodeBulkUploadResponse {
+  summary: {
+    total: number;
+    created: number;
+    errors: number;
+  };
+  report: QrCodeBulkUploadReportRow[];
+  zipReport?: ZipReportEntry[];
 }
 
 export interface CategoryFulfillmentReport {
