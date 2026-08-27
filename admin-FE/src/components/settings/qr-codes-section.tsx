@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { MoreHorizontal, Plus, Upload } from "lucide-react";
+import { MoreHorizontal, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +32,6 @@ import { apiFetch, apiUpload, getQrCodeImageUrl } from "@/lib/api";
 import { useConfirm } from "@/components/confirm-provider";
 import { getQrCodeStatus, QR_CODE_STATUS_VARIANT } from "@/lib/qrCodeStatus";
 import type { QrCode } from "@/lib/types";
-import { QrBulkUploadDialog } from "./qr-bulk-upload-dialog";
 
 const emptyForm = { name: "", valid_from: "", valid_until: "" };
 
@@ -41,7 +40,6 @@ export function QrCodesSection() {
   const [qrCodes, setQrCodes] = useState<QrCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -130,17 +128,9 @@ export function QrCodesSection() {
           confirmed. Whichever code is currently active (by date) is the one sent.
         </p>
         <div className="flex gap-2">
-          {/* Disabled until this flow has actually been tested end-to-end —
-              re-enable by removing `disabled` once verified. */}
-          <Button
-            variant="outline"
-            disabled
-            title="Not available yet — bulk upload hasn't been tested"
-            onClick={() => setBulkDialogOpen(true)}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Bulk Upload
-          </Button>
+          {/* Bulk upload removed from the UI (not tested yet) — the
+              backend routes and QrBulkUploadDialog component are still
+              there, untouched, for whenever this gets re-enabled. */}
           <Button onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Add QR Code
@@ -275,12 +265,6 @@ export function QrCodesSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <QrBulkUploadDialog
-        open={bulkDialogOpen}
-        onOpenChange={setBulkDialogOpen}
-        onUploaded={loadQrCodes}
-      />
     </div>
   );
 }
