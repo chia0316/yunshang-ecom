@@ -9,6 +9,7 @@ const path = require('path');
 const { Readable } = require('stream');
 const { Op } = require('sequelize');
 
+const db = require('../database/connection');
 const Product = require('../productModels/Product.model');
 const Category = require('../productModels/Category.model');
 const ProductFeaturedTag = require('../productModels/ProductFeaturedTag.model');
@@ -243,7 +244,7 @@ router.get('/', attachAdminFlag, async (req, res) => {
         where,
         include: [
           { model: Category, attributes: ['id', 'name'] },
-          { model: ProductFeaturedTag, as: 'featured_tag', attributes: ['id', 'label'] }
+          { model: ProductFeaturedTag, as: 'featured_tag', attributes: ['id', 'label', 'color'] }
         ],
         order: [['created_at', 'DESC']],
         offset,
@@ -276,7 +277,7 @@ router.get('/', attachAdminFlag, async (req, res) => {
     // need a real SQL DISTINCT ON if the catalog grew into the thousands.
     const candidates = await Product.findAll({
       where,
-      attributes: ['id', 'product_handle', 'price', 'createdAt', 'featured_tag_id'],
+      attributes: ['id', 'product_handle', 'price', 'createdAt', 'featured_tag_id', 'is_primary_variant'],
       order: [['createdAt', 'DESC']]
     });
 
@@ -289,9 +290,12 @@ router.get('/', attachAdminFlag, async (req, res) => {
 
     const groupSummaries = Array.from(groups.values()).map((members) => {
       const prices = members.map((m) => parseFloat(m.price));
-      const representative = members.reduce((lowest, m) =>
-        parseFloat(m.price) < parseFloat(lowest.price) ? m : lowest
-      );
+      // Admin-chosen primary variant wins if one's set for this group;
+      // otherwise falls back to the lowest-priced variant, same as before
+      // this existed.
+      const representative =
+        members.find((m) => m.is_primary_variant) ||
+        members.reduce((lowest, m) => (parseFloat(m.price) < parseFloat(lowest.price) ? m : lowest));
       return {
         representativeId: representative.id,
         createdAt: representative.createdAt,
@@ -322,7 +326,7 @@ router.get('/', attachAdminFlag, async (req, res) => {
       where: { id: { [Op.in]: pageSummaries.map((s) => s.representativeId) } },
       include: [
         { model: Category, attributes: ['id', 'name'] },
-        { model: ProductFeaturedTag, as: 'featured_tag', attributes: ['id', 'label'] }
+        { model: ProductFeaturedTag, as: 'featured_tag', attributes: ['id', 'label', 'color'] }
       ]
     });
     const productsById = new Map(products.map((p) => [p.id, p]));
@@ -351,7 +355,7 @@ router.get('/single/:pid', attachAdminFlag, async (req, res) => {
       where: { id: pid },
       include: [
         { model: Category, attributes: ['id', 'name'] },
-        { model: ProductFeaturedTag, as: 'featured_tag', attributes: ['id', 'label'] }
+        { model: ProductFeaturedTag, as: 'featured_tag', attributes: ['id', 'label', 'color'] }
       ]
     });
     if (!product) {
@@ -470,6 +474,39 @@ router.patch('/:pid', authenticate, async (req, res) => {
       return res.status(404).json({ message: 'Product not found', success: false });
     }
     return res.json({ message: 'Product updated successfully!', success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Chooses which variant in this product's product_handle group represents
+// it on the storefront listing page (see GET / grouped=true above) — at
+// most one row per group can be flagged, so this unsets any current holder
+// before setting this one, in a transaction so a group is never briefly
+// left with two (or, on failure, zero) primaries.
+router.patch('/:pid/set-primary-variant', authenticate, async (req, res) => {
+  if (!req.isAdmin) {
+    return res.status(403).json({ error: 'Unauthorized request' });
+  }
+  try {
+    const { pid } = req.params;
+    const product = await Product.findByPk(pid);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found', success: false });
+    }
+    if (!product.product_handle) {
+      return res
+        .status(400)
+        .json({ error: 'This product has no variants to choose a primary photo among' });
+    }
+    await db.transaction(async (t) => {
+      await Product.update(
+        { is_primary_variant: false },
+        { where: { product_handle: product.product_handle }, transaction: t }
+      );
+      await product.update({ is_primary_variant: true }, { transaction: t });
+    });
+    return res.json({ message: 'Primary variant updated', success: true });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

@@ -3,14 +3,66 @@ const router = express.Router();
 const { body } = require('express-validator');
 const { Op } = require('sequelize');
 
+const db = require('../database/connection');
 const Enquiry = require('../productModels/Enquiry.model');
 const QrCode = require('../productModels/QrCode.model');
+const Setting = require('../productModels/Setting.model');
 const mailer = require('../utils/mailer');
 const validate = require('../utils/validator');
 const { authenticate } = require('../utils/authenticator');
 const { getCompanySettings } = require('../utils/companySettings');
 
 const APPOINTMENT_TYPES = ['appointment', 'appointment_no_sales'];
+
+// Mirrors the exact label generation in cust-FE's VisitUsPage.tsx and
+// admin-FE's enquiryConstants.ts TIME_SLOTS — used here to go from a
+// preferred_time label back to its start hour (0-23), for the business-
+// hours check below. A lookup table beats parsing the label text.
+const formatHour = (hour) => {
+  const period = hour < 12 ? 'AM' : 'PM';
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}:00 ${period}`;
+};
+const HOUR_BY_LABEL = new Map(
+  Array.from({ length: 24 }, (_, hour) => [
+    `${formatHour(hour)} - ${formatHour((hour + 1) % 24)}`,
+    hour
+  ])
+);
+const SALES_PERSON_HOURS = { start: 9, end: 17 }; // 9am–6pm, inclusive of the 5-6pm slot
+
+// Admin-configurable via Settings > General — defaults to 1 (today's
+// behavior) if never set or set to something invalid.
+const getSlotsPerHour = async () => {
+  const setting = await Setting.findByPk('appointment_slots_per_hour');
+  const parsed = parseInt(setting?.value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+};
+
+// Shared by the manual admin "Confirm & Send QR" button (POST /:id/confirm)
+// and auto-confirm on booking (POST /) — finds whichever QR code is
+// currently active and emails it, or returns null if none is available
+// (caller decides what to do: 400 for the manual button, fall back to the
+// generic "we received your request" email for a fresh booking).
+const confirmAppointmentAndSendQr = async (enquiry, company) => {
+  const today = new Date().toISOString().slice(0, 10);
+  // Soonest-expiring active code wins if validity windows overlap — uses
+  // up whichever code is closest to lapsing first, rather than an
+  // arbitrary pick.
+  const qrCode = await QrCode.findOne({
+    where: {
+      valid_from: { [Op.lte]: today },
+      valid_until: { [Op.gte]: today },
+      revoked_at: null
+    },
+    order: [['valid_until', 'ASC']]
+  });
+  if (!qrCode) return null;
+
+  await enquiry.update({ status: 'confirmed', confirmed_at: new Date(), qr_code_id: qrCode.id });
+  mailer.sendAppointmentQrCodeMail(enquiry, qrCode, company);
+  return qrCode;
+};
 
 // Public — the landing-page "Visit Us / Enquire" form submits here directly,
 // no account required.
@@ -36,6 +88,14 @@ router.post('/', async (req, res) => {
       if (APPOINTMENT_TYPES.includes(req.body.type) && !value) {
         throw new Error('Preferred time is required for appointment bookings');
       }
+      // Re-validated server-side, not just hidden in the UI — a sales-
+      // person visit only makes sense during staffed hours.
+      if (APPOINTMENT_TYPES.includes(req.body.type) && req.body.requires_sales_person && value) {
+        const hour = HOUR_BY_LABEL.get(value);
+        if (hour === undefined || hour < SALES_PERSON_HOURS.start || hour > SALES_PERSON_HOURS.end) {
+          throw new Error('Appointments with a sales person can only be booked between 9am and 6pm');
+        }
+      }
       return true;
     })
   ]);
@@ -43,27 +103,78 @@ router.post('/', async (req, res) => {
     return;
   }
   const { type, name, email, mobile, preferred_date, preferred_time, message, requires_sales_person } = req.body;
+  const isAppointment = APPOINTMENT_TYPES.includes(type);
   try {
-    const enquiry = await Enquiry.create({
-      type,
-      name,
-      email,
-      mobile,
-      preferred_date: preferred_date || null,
-      preferred_time: preferred_time || null,
-      message: message || null,
-      requires_sales_person: Boolean(requires_sales_person)
-    });
+    let enquiry;
+    if (isAppointment) {
+      const slotsPerHour = await getSlotsPerHour();
+      enquiry = await db.transaction(async (t) => {
+        // Serializes concurrent bookings for the *same* slot only — a
+        // hashtext() collision between two different slots just means they
+        // briefly wait on each other, never an incorrect accept/reject.
+        // This is what actually closes the race a plain count-then-insert
+        // would have now that capacity can be more than 1 (a DB unique
+        // index can't express "at most N", only "at most 1").
+        await db.query('SELECT pg_advisory_xact_lock(hashtext(:slotKey))', {
+          replacements: { slotKey: `${preferred_date}|${preferred_time}` },
+          transaction: t
+        });
+        const existingCount = await Enquiry.count({
+          where: { type: { [Op.in]: APPOINTMENT_TYPES }, preferred_date, preferred_time },
+          transaction: t
+        });
+        if (existingCount >= slotsPerHour) {
+          const full = new Error('Slot full');
+          full.code = 'SLOT_FULL';
+          throw full;
+        }
+        return Enquiry.create(
+          {
+            type,
+            name,
+            email,
+            mobile,
+            preferred_date,
+            preferred_time,
+            message: message || null,
+            requires_sales_person: Boolean(requires_sales_person)
+          },
+          { transaction: t }
+        );
+      });
+    } else {
+      enquiry = await Enquiry.create({
+        type,
+        name,
+        email,
+        mobile,
+        preferred_date: preferred_date || null,
+        preferred_time: preferred_time || null,
+        message: message || null,
+        requires_sales_person: Boolean(requires_sales_person)
+      });
+    }
+
     const company = getCompanySettings();
     mailer.sendEnquiryNotificationMail(enquiry, company);
-    mailer.sendEnquiryConfirmationMail(enquiry, company);
+
+    // Appointments auto-confirm and get the QR code emailed immediately —
+    // no admin action needed unless there's genuinely no active QR code
+    // yet, in which case this falls back to the old "we received your
+    // request" email and the enquiry stays 'new' for admin to confirm
+    // manually once a code exists (same path POST /:id/confirm handles).
+    let autoConfirmed = false;
+    if (isAppointment) {
+      const qrCode = await confirmAppointmentAndSendQr(enquiry, company);
+      autoConfirmed = Boolean(qrCode);
+    }
+    if (!autoConfirmed) {
+      mailer.sendEnquiryConfirmationMail(enquiry, company);
+    }
+
     return res.status(201).json({ message: 'Request submitted successfully!', success: true });
   } catch (err) {
-    // The partial unique index on (preferred_date, preferred_time) for
-    // appointment types (see migrations) is what actually prevents two
-    // customers from booking the same hour — this just turns that DB-level
-    // rejection into a message that makes sense to the customer.
-    if (err.name === 'SequelizeUniqueConstraintError') {
+    if (err.code === 'SLOT_FULL') {
       return res
         .status(409)
         .json({ error: 'That time slot was just booked by someone else — please pick another.' });
@@ -72,11 +183,12 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Public — powers the Visit Us page's calendar. For every date in
-// [from, to], the list of preferred_time slots an appointment already
-// occupies (any status — there's no "cancelled" status distinct from
-// "closed" and no delete/cancel endpoint today, so status can't reliably
-// signal a slot freed up; blocking regardless is the safe default).
+// Public — powers the Visit Us page's time-slot picker. For every date in
+// [from, to], how many bookings each preferred_time slot already has (any
+// status — there's no "cancelled" status distinct from "closed" and no
+// delete/cancel endpoint today, so status can't reliably signal a slot
+// freed up; counting regardless is the safe default). The frontend
+// subtracts this from the configured capacity to show "N left".
 router.get('/appointment-availability', async (req, res) => {
   const { from, to } = req.query;
   if (!from || !to) {
@@ -91,13 +203,13 @@ router.get('/appointment-availability', async (req, res) => {
       },
       attributes: ['preferred_date', 'preferred_time']
     });
-    const takenByDate = {};
+    const countsByDate = {};
     rows.forEach((row) => {
       const date = row.preferred_date;
-      if (!takenByDate[date]) takenByDate[date] = [];
-      takenByDate[date].push(row.preferred_time);
+      if (!countsByDate[date]) countsByDate[date] = {};
+      countsByDate[date][row.preferred_time] = (countsByDate[date][row.preferred_time] || 0) + 1;
     });
-    return res.json(takenByDate);
+    return res.json(countsByDate);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -191,6 +303,9 @@ router.patch('/:id', authenticate, async (req, res) => {
 // also doubles as "resend" when called again on an already-confirmed
 // appointment (e.g. the customer lost the email, or the active code has
 // since rotated to a newer one and they need the current one instead).
+// Bookings auto-confirm on submission now (see POST / above), so this is
+// mainly for: resending, or completing one that couldn't auto-confirm
+// because no QR code was active yet at booking time.
 router.post('/:id/confirm', authenticate, async (req, res) => {
   if (!req.isAdmin) {
     return res.status(403).json({ error: 'Unauthorized request' });
@@ -204,26 +319,12 @@ router.post('/:id/confirm', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Only appointment bookings can be confirmed with a QR code' });
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    // Soonest-expiring active code wins if validity windows overlap — uses
-    // up whichever code is closest to lapsing first, rather than an
-    // arbitrary pick.
-    const qrCode = await QrCode.findOne({
-      where: {
-        valid_from: { [Op.lte]: today },
-        valid_until: { [Op.gte]: today },
-        revoked_at: null
-      },
-      order: [['valid_until', 'ASC']]
-    });
+    const qrCode = await confirmAppointmentAndSendQr(enquiry, getCompanySettings());
     if (!qrCode) {
       return res.status(400).json({
         error: 'No active QR code available — upload one in Settings > QR Codes before confirming this appointment.'
       });
     }
-
-    await enquiry.update({ status: 'confirmed', confirmed_at: new Date(), qr_code_id: qrCode.id });
-    mailer.sendAppointmentQrCodeMail(enquiry, qrCode, getCompanySettings());
 
     return res.json({
       message: 'Appointment confirmed and QR code sent',

@@ -97,6 +97,17 @@ Product.init(
       type: DataTypes.JSONB,
       allowNull: true
     },
+    // Which variant's photo/card represents the whole product_handle group
+    // on the storefront listing page — admin-chosen, via
+    // PATCH /:id/set-primary-variant (routes/product.js). At most one true
+    // per group; falls back to the lowest-priced variant when none is set
+    // (the pre-existing default behavior, which is what made an arbitrary
+    // variant like "black" show up on the listing before this existed).
+    is_primary_variant: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
     is_active: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

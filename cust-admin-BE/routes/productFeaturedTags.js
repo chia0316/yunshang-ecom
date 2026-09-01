@@ -4,6 +4,8 @@ const router = express.Router();
 const ProductFeaturedTag = require('../productModels/ProductFeaturedTag.model');
 const { authenticate, attachAdminFlag } = require('../utils/authenticator');
 
+const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
+
 // Public — the mass-upload template generator and the admin product form
 // both read this; non-admin callers only ever see active tags.
 router.get('/', attachAdminFlag, async (req, res) => {
@@ -23,15 +25,19 @@ router.post('/', authenticate, async (req, res) => {
   if (!req.isAdmin) {
     return res.status(403).json({ error: 'Unauthorized request' });
   }
-  const { label, sort_order, is_active } = req.body;
+  const { label, sort_order, is_active, color } = req.body;
   if (!label || !String(label).trim()) {
     return res.status(400).json({ error: 'Label cannot be empty' });
+  }
+  if (color !== undefined && !HEX_COLOR.test(color)) {
+    return res.status(400).json({ error: 'Color must be a hex value like #f59e0b' });
   }
   try {
     const tag = await ProductFeaturedTag.create({
       label: String(label).trim(),
       sort_order: sort_order || 0,
-      is_active: is_active === undefined ? true : is_active
+      is_active: is_active === undefined ? true : is_active,
+      ...(color !== undefined && { color })
     });
     return res.status(201).json(tag);
   } catch (err) {
@@ -46,10 +52,13 @@ router.patch('/:id', authenticate, async (req, res) => {
   if (!req.isAdmin) {
     return res.status(403).json({ error: 'Unauthorized request' });
   }
-  const allowedFields = ['label', 'sort_order', 'is_active'];
+  const allowedFields = ['label', 'sort_order', 'is_active', 'color'];
   const updates = Object.fromEntries(
     Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
   );
+  if (updates.color !== undefined && !HEX_COLOR.test(updates.color)) {
+    return res.status(400).json({ error: 'Color must be a hex value like #f59e0b' });
+  }
   try {
     const updated = await ProductFeaturedTag.update(updates, { where: { id: req.params.id } });
     if (updated[0] === 0) {

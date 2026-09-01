@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,6 +14,7 @@ import {
   Tag,
   Mail,
   Settings,
+  KeyRound,
   LogOut,
 } from "lucide-react";
 import {
@@ -27,6 +29,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { useAuth } from "@/lib/auth-context";
 
 const navItems = [
@@ -46,6 +49,7 @@ const settingsItems = [{ title: "Settings", url: "/settings", icon: Settings }];
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
   return (
     <Sidebar collapsible="icon">
@@ -115,6 +119,12 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => setPasswordDialogOpen(true)} tooltip="Change password">
+              <KeyRound />
+              <span>Change Password</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton onClick={logout} tooltip="Log out">
               <LogOut />
               <span>Log out</span>
@@ -122,6 +132,7 @@ export function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+      <ChangePasswordDialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen} />
     </Sidebar>
   );
 }

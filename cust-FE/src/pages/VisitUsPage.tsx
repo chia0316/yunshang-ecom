@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, MapPin, Phone, Mail as MailIcon } from 'lucide-react';
 import { apiFetch, ApiError } from '../lib/api';
+import { useAppointmentSlotsPerHour } from '../hooks/useAppointmentSlotsPerHour';
 
 type EnquiryType = 'appointment' | 'enquiry' | 'other';
 
@@ -21,17 +22,21 @@ const getAppointmentDateBounds = () => {
   return { min: toDateInputValue(today), max: toDateInputValue(max) };
 };
 
-// Store is open 24 hours, so every hour of the day is a bookable slot.
+// Store is open 24 hours, so every hour of the day is a bookable slot —
+// unless a sales person is requested, in which case only staffed hours
+// (9am-6pm) are offered (see SALES_PERSON_HOURS below). Mirrors the exact
+// label format cust-admin-BE/routes/enquiries.js generates server-side, since
+// the label itself is what's stored/matched as preferred_time.
 const formatHour = (hour: number) => {
   const period = hour < 12 ? 'AM' : 'PM';
   const displayHour = hour % 12 === 0 ? 12 : hour % 12;
   return `${displayHour}:00 ${period}`;
 };
-const TIME_SLOT_OPTIONS = Array.from({ length: 24 }, (_, hour) => {
-  const start = formatHour(hour);
-  const end = formatHour((hour + 1) % 24);
-  return `${start} - ${end}`;
-});
+const TIME_SLOTS = Array.from({ length: 24 }, (_, hour) => ({
+  hour,
+  label: `${formatHour(hour)} - ${formatHour((hour + 1) % 24)}`,
+}));
+const SALES_PERSON_HOURS = { start: 9, end: 17 }; // 9am-6pm, inclusive of the 5-6pm slot
 
 const VisitUsPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -48,18 +53,20 @@ const VisitUsPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  // Which preferred_time slots are already booked, keyed by date — fetched
-  // for the whole booking window once so switching the date dropdown
-  // doesn't need a round trip. Bumped (via availabilityRefreshKey) after a
-  // booking attempt loses a race on a slot (409), so the one that was just
-  // taken immediately shows as struck through instead of staying pickable.
-  const [takenByDate, setTakenByDate] = useState<Record<string, string[]>>({});
+  // How many bookings each slot already has, keyed by date then label —
+  // fetched for the whole booking window once so switching the date
+  // dropdown doesn't need a round trip. Bumped (via availabilityRefreshKey)
+  // after a booking attempt loses a race on a slot (409), so the one that
+  // was just taken immediately reflects the new count instead of staying
+  // stale.
+  const [takenByDate, setTakenByDate] = useState<Record<string, Record<string, number>>>({});
   const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0);
   const appointmentDateBounds = getAppointmentDateBounds();
+  const slotsPerHour = useAppointmentSlotsPerHour();
 
   useEffect(() => {
     if (formData.type !== 'appointment') return;
-    apiFetch<Record<string, string[]>>(
+    apiFetch<Record<string, Record<string, number>>>(
       `/api/enquiries/appointment-availability?from=${appointmentDateBounds.min}&to=${appointmentDateBounds.max}`,
       { auth: false }
     )
@@ -68,12 +75,41 @@ const VisitUsPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.type, availabilityRefreshKey]);
 
-  const takenTimes = new Set(takenByDate[formData.preferred_date] || []);
+  const takenCounts = takenByDate[formData.preferred_date] || {};
+  const todayStr = toDateInputValue(new Date());
+  const isToday = formData.preferred_date === todayStr;
+  const currentHour = new Date().getHours();
+
+  const visibleTimeSlots = formData.requires_sales_person
+    ? TIME_SLOTS.filter((s) => s.hour >= SALES_PERSON_HOURS.start && s.hour <= SALES_PERSON_HOURS.end)
+    : TIME_SLOTS;
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleRequiresSalesPersonChange = (checked: boolean) => {
+    setFormData((prev) => {
+      // A previously-picked time might fall outside the new (narrower)
+      // staffed-hours range once a sales person is requested — clear it
+      // rather than silently submit an out-of-range slot.
+      const stillValid =
+        !checked ||
+        !prev.preferred_time ||
+        TIME_SLOTS.some(
+          (s) =>
+            s.label === prev.preferred_time &&
+            s.hour >= SALES_PERSON_HOURS.start &&
+            s.hour <= SALES_PERSON_HOURS.end
+        );
+      return {
+        ...prev,
+        requires_sales_person: checked,
+        preferred_time: stillValid ? prev.preferred_time : '',
+      };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -190,6 +226,22 @@ const VisitUsPage: React.FC = () => {
 
               {formData.type === 'appointment' && (
                 <>
+                  <div className="md:col-span-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={formData.requires_sales_person}
+                        onChange={(e) => handleRequiresSalesPersonChange(e.target.checked)}
+                        className="rounded border-gray-300 text-terracotta-600 focus:ring-terracotta-500"
+                      />
+                      Require a sales person (subject to availability)
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1 ml-6">
+                      {formData.requires_sales_person
+                        ? 'Sales person visits are available 9:00 AM - 6:00 PM.'
+                        : 'Unassisted visits are available any time, 24 hours a day.'}
+                    </p>
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Date</label>
                     <input
@@ -216,34 +268,25 @@ const VisitUsPage: React.FC = () => {
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     >
                       <option value="">Select a time</option>
-                      {TIME_SLOT_OPTIONS.map((slot) => {
-                        const isTaken = takenTimes.has(slot);
+                      {visibleTimeSlots.map(({ hour, label }) => {
+                        const isPast = isToday && hour <= currentHour;
+                        const remaining = slotsPerHour - (takenCounts[label] || 0);
+                        const isFull = remaining <= 0;
+                        const disabled = isPast || isFull;
+                        const suffix = isPast ? ' (Past)' : isFull ? ' (Full)' : ` (${remaining} left)`;
                         return (
                           <option
-                            key={slot}
-                            value={slot}
-                            disabled={isTaken}
-                            style={isTaken ? { textDecoration: 'line-through', color: '#9ca3af' } : undefined}
+                            key={label}
+                            value={label}
+                            disabled={disabled}
+                            style={disabled ? { textDecoration: 'line-through', color: '#9ca3af' } : undefined}
                           >
-                            {slot}
-                            {isTaken ? ' (Full)' : ''}
+                            {label}
+                            {suffix}
                           </option>
                         );
                       })}
                     </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={formData.requires_sales_person}
-                        onChange={(e) =>
-                          setFormData({ ...formData, requires_sales_person: e.target.checked })
-                        }
-                        className="rounded border-gray-300 text-terracotta-600 focus:ring-terracotta-500"
-                      />
-                      Require a sales person (subject to availability)
-                    </label>
                   </div>
                 </>
               )}

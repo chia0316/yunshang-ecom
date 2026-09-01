@@ -30,7 +30,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { apiFetch } from "@/lib/api";
 import { useConfirm } from "@/components/confirm-provider";
+import { getContrastTextColor } from "@/lib/utils";
 import type { ProductFeaturedTag } from "@/lib/types";
+
+const DEFAULT_COLOR = "#f59e0b";
 
 export function FeaturedTagsSection() {
   const confirm = useConfirm();
@@ -38,7 +41,7 @@ export function FeaturedTagsSection() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ProductFeaturedTag | null>(null);
-  const [form, setForm] = useState({ label: "", sort_order: "0" });
+  const [form, setForm] = useState({ label: "", sort_order: "0", color: DEFAULT_COLOR });
   const [saving, setSaving] = useState(false);
 
   const loadTags = () => {
@@ -54,7 +57,7 @@ export function FeaturedTagsSection() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ label: "", sort_order: String(tags.length + 1) });
+    setForm({ label: "", sort_order: String(tags.length + 1), color: DEFAULT_COLOR });
     setDialogOpen(true);
   };
 
@@ -63,6 +66,7 @@ export function FeaturedTagsSection() {
     setForm({
       label: tag.label,
       sort_order: String(tag.sort_order),
+      color: tag.color,
     });
     setDialogOpen(true);
   };
@@ -73,6 +77,7 @@ export function FeaturedTagsSection() {
       const payload = {
         label: form.label,
         sort_order: parseInt(form.sort_order || "0", 10),
+        color: form.color,
       };
       if (editing) {
         await apiFetch(`/api/product-featured-tags/${editing.id}`, {
@@ -165,7 +170,14 @@ export function FeaturedTagsSection() {
             ) : (
               tags.map((tag) => (
                 <TableRow key={tag.id}>
-                  <TableCell className="font-medium">{tag.label}</TableCell>
+                  <TableCell className="font-medium">
+                    <span
+                      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                      style={{ backgroundColor: tag.color, color: getContrastTextColor(tag.color) }}
+                    >
+                      {tag.label}
+                    </span>
+                  </TableCell>
                   <TableCell>{tag.sort_order}</TableCell>
                   <TableCell>
                     <Badge variant={tag.is_active ? "success" : "secondary"}>
@@ -224,12 +236,44 @@ export function FeaturedTagsSection() {
                 onChange={(e) => setForm({ ...form, sort_order: e.target.value })}
               />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="tag-color">Badge Color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="tag-color"
+                  type="color"
+                  value={form.color}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  className="h-9 w-12 shrink-0 cursor-pointer rounded border border-input p-1"
+                />
+                <Input
+                  value={form.color}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  placeholder="#f59e0b"
+                  className="font-mono"
+                />
+                <span
+                  className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                  style={{
+                    backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(form.color) ? form.color : DEFAULT_COLOR,
+                    color: getContrastTextColor(
+                      /^#[0-9A-Fa-f]{6}$/.test(form.color) ? form.color : DEFAULT_COLOR
+                    ),
+                  }}
+                >
+                  {form.label || "Preview"}
+                </span>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving || !form.label}>
+            <Button
+              onClick={handleSave}
+              disabled={saving || !form.label || !/^#[0-9A-Fa-f]{6}$/.test(form.color)}
+            >
               {saving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>

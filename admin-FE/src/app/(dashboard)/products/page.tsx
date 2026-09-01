@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Images, MoreHorizontal, Plus, Trash2, Upload } from "lucide-react";
+import { Images, MoreHorizontal, Plus, Star, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Pagination } from "@/components/ui/pagination";
 import { apiFetch, getProductImageUrl } from "@/lib/api";
+import { getContrastTextColor } from "@/lib/utils";
 import type { BulkRemoveResponse, Category, Product } from "@/lib/types";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { BulkUploadDialog } from "@/components/products/bulk-upload-dialog";
@@ -107,6 +108,18 @@ export default function ProductsPage() {
     }
   };
 
+  // Which variant's photo represents the whole group on the storefront
+  // listing page — see PATCH /:id/set-primary-variant on the backend.
+  const handleSetPrimaryVariant = async (product: Product) => {
+    try {
+      await apiFetch(`/api/products/${product.id}/set-primary-variant`, { method: "PATCH" });
+      toast.success(`"${product.sku}" is now the listing photo for this group`);
+      loadProducts(search, page);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
+    }
+  };
+
   // Groups variant rows (same product_handle) so they read as one product
   // with N variants instead of N unrelated-looking rows — display only,
   // doesn't touch the underlying flat list or how selection/actions work.
@@ -117,6 +130,28 @@ export default function ProductsPage() {
     const counts = new Map<string, number>();
     products.forEach((p) => {
       if (p.product_handle) counts.set(p.product_handle, (counts.get(p.product_handle) || 0) + 1);
+    });
+
+    // Which variant is *actually* the listing photo right now, per group —
+    // mirrors the backend's fallback in routes/product.js exactly (explicit
+    // is_primary_variant wins; otherwise the lowest-priced variant). Without
+    // this, "Set as listing photo" would still show on the variant that's
+    // already the de-facto listing photo whenever no one has explicitly set
+    // one yet (the common case), since is_primary_variant alone is false
+    // for every row in that group.
+    const byHandle = new Map<string, Product[]>();
+    products.forEach((p) => {
+      if (!p.product_handle) return;
+      if (!byHandle.has(p.product_handle)) byHandle.set(p.product_handle, []);
+      byHandle.get(p.product_handle)!.push(p);
+    });
+    const effectivePrimaryId = new Map<string, number>();
+    byHandle.forEach((members, handle) => {
+      const flagged = members.find((m) => m.is_primary_variant);
+      const winner =
+        flagged ||
+        members.reduce((lowest, m) => (Number(m.price) < Number(lowest.price) ? m : lowest));
+      effectivePrimaryId.set(handle, winner.id);
     });
 
     const ordered: Product[] = [];
@@ -143,6 +178,9 @@ export default function ProductsPage() {
       product,
       groupSize: product.product_handle ? counts.get(product.product_handle) || 1 : 1,
       isFirstOfGroup: i === 0 || ordered[i - 1].product_handle !== product.product_handle,
+      isEffectivePrimary: product.product_handle
+        ? effectivePrimaryId.get(product.product_handle) === product.id
+        : false,
     }));
   }, [products]);
 
@@ -287,7 +325,7 @@ export default function ProductsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              displayRows.map(({ product, groupSize, isFirstOfGroup }) => {
+              displayRows.map(({ product, groupSize, isFirstOfGroup, isEffectivePrimary }) => {
                 const isGrouped = groupSize > 1;
                 const variantLabel = product.variant_options
                   ? Object.values(product.variant_options).join(", ")
@@ -304,16 +342,26 @@ export default function ProductsPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      {product.image_filenames[0] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={getProductImageUrl(product.image_filenames[0])}
-                          alt={product.name}
-                          className="h-10 w-10 rounded object-cover"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded bg-muted" />
-                      )}
+                      <div className="relative h-10 w-10">
+                        {product.image_filenames[0] ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={getProductImageUrl(product.image_filenames[0])}
+                            alt={product.name}
+                            className="h-10 w-10 rounded object-cover"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded bg-muted" />
+                        )}
+                        {isGrouped && isEffectivePrimary && (
+                          <span
+                            title="This variant's photo represents the group on the storefront listing"
+                            className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-500 text-white"
+                          >
+                            <Star className="h-2.5 w-2.5 fill-current" />
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {product.sku}
@@ -329,7 +377,13 @@ export default function ProductsPage() {
                         </Badge>
                       )}
                       {product.featured_tag && (
-                        <Badge variant="warning" className="ml-2">
+                        <Badge
+                          className="ml-2"
+                          style={{
+                            backgroundColor: product.featured_tag.color,
+                            color: getContrastTextColor(product.featured_tag.color),
+                          }}
+                        >
                           {product.featured_tag.label}
                         </Badge>
                       )}
@@ -378,6 +432,11 @@ export default function ProductsPage() {
                           >
                             Edit
                           </DropdownMenuItem>
+                          {isGrouped && !isEffectivePrimary && (
+                            <DropdownMenuItem onClick={() => handleSetPrimaryVariant(product)}>
+                              Set as listing photo
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             variant="destructive"
                             onClick={() => handleDelete(product)}

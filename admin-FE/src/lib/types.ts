@@ -9,6 +9,7 @@ export interface ProductFeaturedTag {
   id: number;
   label: string;
   sort_order: number;
+  color: string;
   is_active: boolean;
 }
 
@@ -35,6 +36,9 @@ export interface Product {
   product_handle: string | null;
   variant_options: Record<string, string> | null;
   is_active: boolean;
+  // Which variant represents this product_handle group on the storefront
+  // listing page — see PATCH /:id/set-primary-variant.
+  is_primary_variant: boolean;
   createdAt: string;
   // Only present when fetched via ?grouped=true (storefront listing) —
   // absent everywhere else, including the admin product list.

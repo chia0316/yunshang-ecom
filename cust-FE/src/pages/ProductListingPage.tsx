@@ -35,6 +35,18 @@ const getCategoryIcon = (name: string) => {
   return LayoutGrid;
 };
 
+// Picks black or white text for a given hex background so an admin-chosen
+// featured-tag color stays readable regardless of what color was picked.
+const getContrastTextColor = (hex: string) => {
+  const clean = hex.replace('#', '');
+  if (clean.length !== 6) return '#000000';
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? '#000000' : '#ffffff';
+};
+
 const ProductListingPage: React.FC = () => {
   const { categoryId } = useParams();
   const [searchParams] = useSearchParams();
@@ -197,7 +209,17 @@ const ProductListingPage: React.FC = () => {
                       />
 
                       {(product.featured_tag || product.sale_price) && (
-                        <div className="absolute top-4 left-4 bg-red-500 text-white px-2 py-1 rounded text-sm font-medium">
+                        <div
+                          className="absolute top-4 left-4 px-2 py-1 rounded text-sm font-medium"
+                          style={
+                            product.featured_tag
+                              ? {
+                                  backgroundColor: product.featured_tag.color,
+                                  color: getContrastTextColor(product.featured_tag.color),
+                                }
+                              : { backgroundColor: '#ef4444', color: '#ffffff' }
+                          }
+                        >
                           {product.featured_tag ? product.featured_tag.label : 'Sale'}
                         </div>
                       )}
