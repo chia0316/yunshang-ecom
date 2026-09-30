@@ -6,6 +6,13 @@ const Coupon = require('../productModels/Coupon.model');
 const Enquiry = require('../productModels/Enquiry.model');
 const db = require('../database/connection');
 
+// Revenue everywhere on this dashboard means money actually collected — an
+// order only counts once it has a `completed` Payment (see
+// productModels/Payment.model.js) — not just money ordered/booked. Mirrors
+// the same fix in routes/reports.js `/sales`, so the Dashboard's totals stay
+// consistent with the Sales Report rather than showing two different
+// numbers for "revenue".
+
 const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'];
 const ENQUIRY_STATUSES = ['new', 'contacted', 'confirmed', 'closed'];
 const LOW_STOCK_THRESHOLD = 5;
@@ -32,7 +39,7 @@ const getAnalyticsData = async (req, res) => {
       totalCustomers,
       newCustomers30d,
       totalOrders,
-      totalRevenue,
+      totalRevenueRows,
       orderStatusRows,
       activeProducts,
       lowStockProducts,
@@ -47,7 +54,13 @@ const getAnalyticsData = async (req, res) => {
       User.count({ where: { isAdmin: false } }),
       User.count({ where: { isAdmin: false, createdAt: { [Op.gte]: thirtyDaysAgo } } }),
       Order.count(),
-      Order.sum('total_price', { where: { status: { [Op.ne]: 'cancelled' } } }),
+      db.query(
+        `SELECT COALESCE(SUM(pay.amount), 0) AS "totalRevenue"
+         FROM orders o
+         JOIN payments pay ON pay.order_id = o.id AND pay.status = 'completed'
+         WHERE o.status != 'cancelled' AND o.deleted_at IS NULL`,
+        { type: QueryTypes.SELECT }
+      ),
       Order.findAll({
         attributes: ['status', [fn('COUNT', col('id')), 'count']],
         group: ['status'],
@@ -83,13 +96,14 @@ const getAnalyticsData = async (req, res) => {
            c.id AS "categoryId",
            c.name AS "categoryName",
            COUNT(DISTINCT p.id) AS "productCount",
-           COALESCE(SUM(CASE WHEN o.status != 'cancelled' THEN od.quantity * od.price END), 0) AS "revenue30d"
+           COALESCE(SUM(CASE WHEN o.status != 'cancelled' AND pay.id IS NOT NULL THEN od.quantity * od.price END), 0) AS "revenue30d"
          FROM categories c
          LEFT JOIN products p ON p.category_id = c.id AND p.is_active = true
          LEFT JOIN order_details od ON od.product_id = p.id
          LEFT JOIN orders o ON o.id = od.order_id
            AND o.deleted_at IS NULL
            AND o.created_at >= :thirtyDaysAgo
+         LEFT JOIN payments pay ON pay.order_id = o.id AND pay.status = 'completed'
          GROUP BY c.id, c.name
          ORDER BY "revenue30d" DESC`,
         { replacements: { thirtyDaysAgo }, type: QueryTypes.SELECT }
@@ -107,7 +121,7 @@ const getAnalyticsData = async (req, res) => {
       totalCustomers,
       newCustomers30d,
       totalOrders,
-      totalRevenue: totalRevenue || 0,
+      totalRevenue: parseFloat(totalRevenueRows[0]?.totalRevenue) || 0,
       orderStatusBreakdown: Object.fromEntries(
         ORDER_STATUSES.map((s) => [s, orderStatusCounts[s] || 0])
       ),

@@ -9,14 +9,16 @@ import { useCompanySettings } from '../hooks/useCompanySettings';
 import { apiFetch, ApiError } from '../lib/api';
 import type { Order } from '../lib/types';
 
-const PAYMENT_METHODS = ['PayNow', 'NETS', 'Card', 'Cash'] as const;
+const PAYMENT_METHODS = ['PayNow', 'NETS', 'Card', 'Cash', 'Atome'] as const;
 
 // NETS and Card aren't live yet — only these are offered at checkout for now.
-const ENABLED_PAYMENT_METHODS: (typeof PAYMENT_METHODS)[number][] = ['PayNow', 'Cash'];
+const ENABLED_PAYMENT_METHODS: (typeof PAYMENT_METHODS)[number][] = ['PayNow', 'Cash', 'Atome'];
 
-// No payment gateway is live yet. PayNow and Cash are confirmed manually by
-// an admin after the fact (QR scan / pay-at-office respectively) instead of
-// the auto-confirm simulation NETS/Card still use below.
+// PayNow and Cash are confirmed manually by an admin after the fact (QR scan
+// / pay-at-office respectively). Atome is NOT manual — its Payment status is
+// asserted by a real gateway webhook (see cust-admin-BE/routes/payment.js
+// `POST /atome/webhook`), same as NETS/Card would be if a gateway existed
+// for them.
 const MANUAL_PAYMENT_METHODS: (typeof PAYMENT_METHODS)[number][] = ['PayNow', 'Cash'];
 
 type CheckoutStep = 'delivery' | 'account' | 'payment' | 'confirmation';
@@ -203,6 +205,40 @@ const CheckoutPage: React.FC = () => {
   const confirmPayNowPayment = () => {
     clearCart();
     setStep('confirmation');
+  };
+
+  // Creates the order (pending, same as PayNow/Cash) then hands off to
+  // Atome's hosted checkout page for a full-page redirect — there's no
+  // local "confirmation" step for Atome; it happens on AtomeReturnPage after
+  // Atome redirects back, driven by the webhook-confirmed Payment status,
+  // never by anything claimed client-side.
+  const openAtomeCheckout = async () => {
+    setError(null);
+    setSubmitting(true);
+    setProcessingLabel('Redirecting to Atome...');
+    let createdOrderId: number | null = null;
+    try {
+      const { order, paymentId } = await createOrder();
+      createdOrderId = order.id;
+      const { checkoutUrl } = await apiFetch<{ checkoutUrl: string }>(
+        `/api/payments/${paymentId}/atome/checkout`,
+        { method: 'POST' }
+      );
+      // Cart is intentionally NOT cleared here — the customer hasn't paid
+      // yet, only been handed a redirect. It's cleared on AtomeReturnPage,
+      // and only once the webhook-confirmed status actually comes back paid.
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      // Nothing useful to do with a pending order that can never be paid —
+      // best-effort cleanup, same as cancelPendingOrder for an abandoned
+      // PayNow QR.
+      if (createdOrderId) {
+        apiFetch(`/api/orders/${createdOrderId}`, { method: 'DELETE' }).catch(() => undefined);
+      }
+      setError(err instanceof Error ? err.message : 'Failed to start Atome checkout');
+      setSubmitting(false);
+      setProcessingLabel(null);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -636,6 +672,7 @@ const CheckoutPage: React.FC = () => {
                   {paymentMethod === 'NETS' && "You'll receive NETS payment instructions after placing your order."}
                   {paymentMethod === 'Card' && 'Card payment instructions will be sent after placing your order.'}
                   {paymentMethod === 'Cash' && 'Pay in cash at our office within 7 days of placing your order.'}
+                  {paymentMethod === 'Atome' && "You'll be redirected to Atome to pay in interest-free installments."}
                 </p>
                 {error && <p className="text-sm text-red-600 mt-4">{error}</p>}
               </div>
@@ -651,7 +688,13 @@ const CheckoutPage: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={paymentMethod === 'PayNow' ? openPayNowGate : placeOrder}
+                  onClick={
+                    paymentMethod === 'PayNow'
+                      ? openPayNowGate
+                      : paymentMethod === 'Atome'
+                        ? openAtomeCheckout
+                        : placeOrder
+                  }
                   disabled={submitting}
                   className="flex items-center px-6 py-3 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-medium disabled:opacity-50"
                 >
@@ -660,7 +703,9 @@ const CheckoutPage: React.FC = () => {
                     ? processingLabel || 'Placing Order...'
                     : paymentMethod === 'PayNow'
                       ? 'Continue to Payment'
-                      : 'Place Order'}
+                      : paymentMethod === 'Atome'
+                        ? 'Continue to Atome'
+                        : 'Place Order'}
                 </button>
               </div>
             </div>
