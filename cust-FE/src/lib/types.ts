@@ -91,7 +91,7 @@ export interface Payment {
   order_id: number;
   amount: string;
   currency: string;
-  method: 'PayNow' | 'NETS' | 'Card' | 'Cash' | 'Atome';
+  method: 'PayNow' | 'NETS' | 'Card' | 'Cash';
   status: 'pending' | 'completed' | 'failed' | 'refunded';
   paid_at: string | null;
 }

@@ -25,7 +25,7 @@ Payment.init(
       defaultValue: 'SGD'
     },
     method: {
-      type: DataTypes.ENUM('PayNow', 'NETS', 'Card', 'Cash', 'Atome'),
+      type: DataTypes.ENUM('PayNow', 'NETS', 'Card', 'Cash'),
       allowNull: false
     },
     gateway_reference: {

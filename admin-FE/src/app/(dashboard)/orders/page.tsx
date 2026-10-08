@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { FileText, Truck, Download } from "lucide-react";
@@ -33,7 +33,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Pagination } from "@/components/ui/pagination";
 import { apiFetch, apiDownload } from "@/lib/api";
-import { useConfirm } from "@/components/confirm-provider";
 import type { Order } from "@/lib/types";
 
 const STATUS_OPTIONS: Order["status"][] = [
@@ -82,7 +81,6 @@ function isCashPaymentOverdue(order: Order): boolean {
 const PAGE_SIZE = 20;
 
 export default function OrdersPage() {
-  const confirm = useConfirm();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -103,8 +101,6 @@ export default function OrdersPage() {
     remarks: "",
   });
   const [savingDelivery, setSavingDelivery] = useState(false);
-
-  const [paymentDialogOrder, setPaymentDialogOrder] = useState<Order | null>(null);
 
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -177,24 +173,6 @@ export default function OrdersPage() {
       loadOrders();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
-    }
-  };
-
-  const handleAtomeRefund = async (order: Order) => {
-    const payment = order.payments?.[0];
-    if (!payment) return;
-    const ok = await confirm({
-      title: `Refund $${Number(payment.amount).toFixed(2)} to ${order.order_number}?`,
-      confirmLabel: "Refund",
-      variant: "destructive",
-    });
-    if (!ok) return;
-    try {
-      await apiFetch(`/api/payments/${payment.id}/atome/refund`, { method: "POST" });
-      toast.success(`Atome payment for order ${order.order_number} refunded`);
-      loadOrders();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Refund failed");
     }
   };
 
@@ -374,16 +352,6 @@ export default function OrdersPage() {
                             Overdue
                           </Badge>
                         )}
-                        {order.payments[0].method === "Atome" && (
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0 text-xs justify-start"
-                            onClick={() => setPaymentDialogOrder(order)}
-                          >
-                            Payment #{order.payments[0].id} details
-                          </Button>
-                        )}
                         {(order.payments[0].method === "Cash" || order.payments[0].method === "PayNow") &&
                           order.payments[0].status === "pending" && (
                             <Button
@@ -395,16 +363,6 @@ export default function OrdersPage() {
                               Mark as Paid
                             </Button>
                           )}
-                        {order.payments[0].method === "Atome" && order.payments[0].status === "completed" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => handleAtomeRefund(order)}
-                          >
-                            Refund
-                          </Button>
-                        )}
                       </div>
                     ) : (
                       <span className="text-muted-foreground">—</span>
@@ -527,76 +485,6 @@ export default function OrdersPage() {
             </Button>
             <Button onClick={handleSaveDelivery} disabled={savingDelivery}>
               {savingDelivery ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={Boolean(paymentDialogOrder)}
-        onOpenChange={(open) => !open && setPaymentDialogOrder(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Atome payment — Order {paymentDialogOrder?.order_number}
-            </DialogTitle>
-          </DialogHeader>
-          {paymentDialogOrder?.payments?.[0] && (
-            <div className="grid gap-3 py-2 text-sm">
-              {(() => {
-                const payment = paymentDialogOrder.payments![0];
-                const raw = payment.raw_response;
-                const rows: [string, string][] = [
-                  ["Payment ID", `#${payment.id}`],
-                  ["Status", payment.status],
-                  ["Amount", `${payment.currency} ${Number(payment.amount).toFixed(2)}`],
-                  ["Atome reference", payment.gateway_reference || "—"],
-                  ["Atome transaction ID", raw?.paymentTransaction?.transactionId || "—"],
-                  ["Atome order ID", raw?.paymentTransaction?.orderId || "—"],
-                  [
-                    "Refundable amount",
-                    raw?.refundableAmount != null
-                      ? `${payment.currency} ${(raw.refundableAmount / 100).toFixed(2)}`
-                      : "—",
-                  ],
-                  [
-                    "Paid at",
-                    payment.paid_at ? new Date(payment.paid_at).toLocaleString() : "—",
-                  ],
-                ];
-                return (
-                  <>
-                    <div className="grid grid-cols-[140px_1fr] gap-y-2">
-                      {rows.map(([label, value]) => (
-                        <Fragment key={label}>
-                          <span className="text-muted-foreground">{label}</span>
-                          <span className="font-medium break-all">{value}</span>
-                        </Fragment>
-                      ))}
-                    </div>
-                    {raw?.refundTransactions && raw.refundTransactions.length > 0 && (
-                      <div className="pt-2 border-t">
-                        <p className="text-muted-foreground mb-1">Refund history</p>
-                        {raw.refundTransactions.map((r) => (
-                          <div key={r.refundId} className="flex justify-between text-xs py-0.5">
-                            <span>{r.refundId}</span>
-                            <span>
-                              {payment.currency} {(r.amount / 100).toFixed(2)} —{" "}
-                              {new Date(Number(r.createAt)).toLocaleDateString()}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPaymentDialogOrder(null)}>
-              Close
             </Button>
           </DialogFooter>
         </DialogContent>
