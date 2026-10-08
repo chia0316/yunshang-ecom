@@ -22,11 +22,10 @@ const getAppointmentDateBounds = () => {
   return { min: toDateInputValue(today), max: toDateInputValue(max) };
 };
 
-// Store is open 24 hours, so every hour of the day is a bookable slot —
-// unless a sales person is requested, in which case only staffed hours
-// (9am-6pm) are offered (see SALES_PERSON_HOURS below). Mirrors the exact
-// label format cust-admin-BE/routes/enquiries.js generates server-side, since
-// the label itself is what's stored/matched as preferred_time.
+// Store is open 24 hours, so every hour of the day is a bookable slot.
+// Mirrors the exact label format cust-admin-BE/routes/enquiries.js generates
+// server-side, since the label itself is what's stored/matched as
+// preferred_time.
 const formatHour = (hour: number) => {
   const period = hour < 12 ? 'AM' : 'PM';
   const displayHour = hour % 12 === 0 ? 12 : hour % 12;
@@ -36,7 +35,6 @@ const TIME_SLOTS = Array.from({ length: 24 }, (_, hour) => ({
   hour,
   label: `${formatHour(hour)} - ${formatHour((hour + 1) % 24)}`,
 }));
-const SALES_PERSON_HOURS = { start: 9, end: 17 }; // 9am-6pm, inclusive of the 5-6pm slot
 
 const VisitUsPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -46,6 +44,12 @@ const VisitUsPage: React.FC = () => {
     mobile: '',
     preferred_date: '',
     preferred_time: '',
+    // No longer customer-choosable — the client removed the "require a
+    // sales person" option, so every appointment books as an unassisted,
+    // any-hour visit. Still sent as a real field since the backend
+    // (cust-admin-BE/routes/enquiries.js) and admin tooling branch on it;
+    // `false` is also its model default, so this just makes that default
+    // permanent rather than optional.
     requires_sales_person: false,
     message: '',
   });
@@ -80,36 +84,10 @@ const VisitUsPage: React.FC = () => {
   const isToday = formData.preferred_date === todayStr;
   const currentHour = new Date().getHours();
 
-  const visibleTimeSlots = formData.requires_sales_person
-    ? TIME_SLOTS.filter((s) => s.hour >= SALES_PERSON_HOURS.start && s.hour <= SALES_PERSON_HOURS.end)
-    : TIME_SLOTS;
-
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleRequiresSalesPersonChange = (checked: boolean) => {
-    setFormData((prev) => {
-      // A previously-picked time might fall outside the new (narrower)
-      // staffed-hours range once a sales person is requested — clear it
-      // rather than silently submit an out-of-range slot.
-      const stillValid =
-        !checked ||
-        !prev.preferred_time ||
-        TIME_SLOTS.some(
-          (s) =>
-            s.label === prev.preferred_time &&
-            s.hour >= SALES_PERSON_HOURS.start &&
-            s.hour <= SALES_PERSON_HOURS.end
-        );
-      return {
-        ...prev,
-        requires_sales_person: checked,
-        preferred_time: stillValid ? prev.preferred_time : '',
-      };
-    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -226,22 +204,6 @@ const VisitUsPage: React.FC = () => {
 
               {formData.type === 'appointment' && (
                 <>
-                  <div className="md:col-span-2">
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={formData.requires_sales_person}
-                        onChange={(e) => handleRequiresSalesPersonChange(e.target.checked)}
-                        className="rounded border-gray-300 text-terracotta-600 focus:ring-terracotta-500"
-                      />
-                      Require a sales person (subject to availability)
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1 ml-6">
-                      {formData.requires_sales_person
-                        ? 'Sales person visits are available 9:00 AM - 6:00 PM.'
-                        : 'Unassisted visits are available any time, 24 hours a day.'}
-                    </p>
-                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Date</label>
                     <input
@@ -268,7 +230,7 @@ const VisitUsPage: React.FC = () => {
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                     >
                       <option value="">Select a time</option>
-                      {visibleTimeSlots.map(({ hour, label }) => {
+                      {TIME_SLOTS.map(({ hour, label }) => {
                         const isPast = isToday && hour <= currentHour;
                         const remaining = slotsPerHour - (takenCounts[label] || 0);
                         const isFull = remaining <= 0;
