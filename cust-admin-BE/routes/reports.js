@@ -1,15 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { Op, fn, col, literal, QueryTypes } = require('sequelize');
+const { QueryTypes } = require('sequelize');
 
-const Order = require('../productModels/Order.model');
 const db = require('../database/connection');
 const { authenticate } = require('../utils/authenticator');
 
 const VALID_GROUPINGS = ['day', 'week', 'month'];
 
-// Sales summary + time series + top products for a date range. Cancelled
-// orders are excluded from revenue the same way the dashboard analytics does.
+// Sales summary + time series + top products for a date range. Revenue here
+// means money actually collected, not just money ordered — every figure is
+// built from orders with a `completed` Payment (see productModels/Payment.
+// model.js), not from Order.total_price directly. A pending/failed/refunded
+// payment (including an Atome checkout still awaiting its webhook, or a
+// PayNow transfer awaiting manual admin confirmation) contributes nothing
+// here until it actually completes. `o.status != 'cancelled'` is kept as a
+// belt-and-suspenders filter alongside the payment join, not the primary
+// guard.
 router.get('/sales', authenticate, async (req, res) => {
   if (!req.isAdmin) {
     return res.status(403).json({ error: 'Unauthorized request' });
@@ -21,32 +27,33 @@ router.get('/sales', authenticate, async (req, res) => {
       ? new Date(req.query.from)
       : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const where = {
-      status: { [Op.ne]: 'cancelled' },
-      created_at: { [Op.gte]: from, [Op.lte]: to }
-    };
+    const [summaryRow] = await db.query(
+      `SELECT
+         COUNT(DISTINCT o.id) AS "orderCount",
+         COALESCE(SUM(pay.amount), 0) AS "totalRevenue",
+         COALESCE(AVG(pay.amount), 0) AS "averageOrderValue"
+       FROM orders o
+       JOIN payments pay ON pay.order_id = o.id AND pay.status = 'completed'
+       WHERE o.status != 'cancelled'
+         AND o.deleted_at IS NULL
+         AND o.created_at BETWEEN :from AND :to`,
+      { replacements: { from, to }, type: QueryTypes.SELECT }
+    );
 
-    const summaryRow = await Order.findOne({
-      attributes: [
-        [fn('COUNT', col('id')), 'orderCount'],
-        [fn('COALESCE', fn('SUM', col('total_price')), 0), 'totalRevenue'],
-        [fn('COALESCE', fn('AVG', col('total_price')), 0), 'averageOrderValue']
-      ],
-      where,
-      raw: true
-    });
-
-    const series = await Order.findAll({
-      attributes: [
-        [fn('date_trunc', groupBy, col('created_at')), 'period'],
-        [fn('COUNT', col('id')), 'orderCount'],
-        [fn('COALESCE', fn('SUM', col('total_price')), 0), 'revenue']
-      ],
-      where,
-      group: [literal('1')],
-      order: [[literal('1'), 'ASC']],
-      raw: true
-    });
+    const series = await db.query(
+      `SELECT
+         date_trunc(:groupBy, o.created_at) AS "period",
+         COUNT(DISTINCT o.id) AS "orderCount",
+         COALESCE(SUM(pay.amount), 0) AS "revenue"
+       FROM orders o
+       JOIN payments pay ON pay.order_id = o.id AND pay.status = 'completed'
+       WHERE o.status != 'cancelled'
+         AND o.deleted_at IS NULL
+         AND o.created_at BETWEEN :from AND :to
+       GROUP BY "period"
+       ORDER BY "period" ASC`,
+      { replacements: { groupBy, from, to }, type: QueryTypes.SELECT }
+    );
 
     const topProducts = await db.query(
       `SELECT
@@ -57,6 +64,7 @@ router.get('/sales', authenticate, async (req, res) => {
          SUM(od.quantity * od.price) AS "revenue"
        FROM order_details od
        JOIN orders o ON o.id = od.order_id
+       JOIN payments pay ON pay.order_id = o.id AND pay.status = 'completed'
        JOIN products p ON p.id = od.product_id
        WHERE o.status != 'cancelled'
          AND o.deleted_at IS NULL

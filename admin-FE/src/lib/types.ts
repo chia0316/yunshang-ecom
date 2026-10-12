@@ -104,15 +104,37 @@ export interface OrderDelivery {
   remarks: string | null;
 }
 
+// Atome's own payment object, stored verbatim (see cust-admin-BE
+// utils/atome.js) — this is what lets support cross-reference a payment
+// against Atome's Merchant Portal, since referenceId/gateway_reference
+// alone is our own order_number, not Atome's internal transaction id.
+export interface AtomeRawResponse {
+  status?: "PROCESSING" | "PAID" | "FAILED" | "REFUNDED" | "CANCELLED";
+  refundableAmount?: number;
+  paymentTransaction?: {
+    orderId: string;
+    transactionId: string;
+    createAt: string;
+    tenor?: number;
+  } | null;
+  refundTransactions?: Array<{
+    refundId: string;
+    transactionId: string;
+    amount: number;
+    createAt: string;
+  }>;
+}
+
 export interface Payment {
   id: number;
   order_id: number;
   amount: string;
   currency: string;
-  method: "PayNow" | "NETS" | "Card" | "Cash";
+  method: "PayNow" | "NETS" | "Card" | "Cash" | "Atome";
   gateway_reference: string | null;
   status: "pending" | "completed" | "failed" | "refunded";
   paid_at: string | null;
+  raw_response?: AtomeRawResponse | null;
 }
 
 export interface Order {

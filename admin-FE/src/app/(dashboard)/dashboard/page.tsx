@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { apiFetch } from "@/lib/api";
+import { MonthlySalesChart } from "@/components/dashboard/monthly-sales-chart";
 import type { DashboardAnalytics, SalesReport, OrderStatus, EnquiryStatus } from "@/lib/types";
 
 const ORDER_STATUS_VARIANT: Record<
@@ -115,6 +116,7 @@ function ModuleCard({
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardAnalytics | null>(null);
   const [sales, setSales] = useState<SalesReport | null>(null);
+  const [monthlySales, setMonthlySales] = useState<SalesReport | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -125,13 +127,26 @@ export default function DashboardPage() {
       to: to.toISOString().slice(0, 10),
       groupBy: "day",
     });
+
+    // 12 full calendar months back, for the monthly trend chart — a
+    // separate range/grouping from the 30-day snapshot above.
+    const monthlyTo = new Date();
+    const monthlyFrom = new Date(monthlyTo.getFullYear(), monthlyTo.getMonth() - 11, 1);
+    const monthlyParams = new URLSearchParams({
+      from: monthlyFrom.toISOString().slice(0, 10),
+      to: monthlyTo.toISOString().slice(0, 10),
+      groupBy: "month",
+    });
+
     Promise.all([
       apiFetch<DashboardAnalytics>("/api/admin/dashboard/analytics"),
       apiFetch<SalesReport>(`/api/reports/sales?${params.toString()}`),
+      apiFetch<SalesReport>(`/api/reports/sales?${monthlyParams.toString()}`),
     ])
-      .then(([analytics, salesReport]) => {
+      .then(([analytics, salesReport, monthlyReport]) => {
         setData(analytics);
         setSales(salesReport);
+        setMonthlySales(monthlyReport);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -203,6 +218,12 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      <ModuleCard title="Monthly sales (last 12 months)" href="/reports/sales">
+        <div className="p-4">
+          <MonthlySalesChart series={monthlySales?.series ?? null} loading={loading} />
+        </div>
+      </ModuleCard>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ModuleCard title="Top selling products (last 30 days)" href="/products">

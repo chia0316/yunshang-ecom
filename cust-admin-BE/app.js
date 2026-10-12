@@ -28,7 +28,16 @@ const notificationsRouter = require('./routes/notifications');
 const app = express();
 app.use(cors());
 app.use(logger('dev'));
-app.use(express.json());
+// `verify` stashes the raw bytes alongside the parsed body — needed to
+// check a webhook's HMAC signature (e.g. Atome's), which is always computed
+// over the exact raw request body, not the re-serialized parsed object.
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    }
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 
 // Serves product images placed in public/images by filename — the default,
