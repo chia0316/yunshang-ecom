@@ -80,7 +80,7 @@ const sendPasswordResetMail = (email, resetLink) => {
   });
 };
 
-const PAYMENT_METHODS = ['PayNow', 'NETS', 'Card', 'Cash'];
+const PAYMENT_METHODS = ['PayNow', 'NETS', 'Card', 'Cash', 'Atome'];
 const CASH_PAYMENT_DAYS = 7;
 
 // order.created_at, order.total_price, order.discount_amount are all
@@ -148,6 +148,17 @@ const sendOrderConfirmationMail = (
       <div style="margin-top:24px;padding:16px;background:#fdf2e9;border-radius:8px;">
         <p style="margin:0 0 4px;font-weight:600;font-size:14px;">PayNow</p>
         <p style="margin:0;font-size:14px;">Please complete payment using the PayNow QR code shown on your order confirmation page. We'll confirm your order once payment is received.</p>
+      </div>
+    `;
+  } else if (safeMethod === 'Atome') {
+    // Unlike Cash/PayNow, this email only ever fires once Atome has
+    // actually confirmed payment (see routes/payment.js POST
+    // /atome/webhook) — so, unlike those two, this is a "paid" message, not
+    // a "here's how to pay" one.
+    paymentHtml = `
+      <div style="margin-top:24px;padding:16px;background:#ecfdf3;border-radius:8px;">
+        <p style="margin:0 0 4px;font-weight:600;font-size:14px;color:#027a48;">Payment confirmed via Atome</p>
+        <p style="margin:0;font-size:14px;">Your payment has been received. Your order is now being processed.</p>
       </div>
     `;
   }

@@ -9,6 +9,8 @@ const Product = require('../productModels/Product.model');
 const User = require('../productModels/User.model');
 const { authenticate } = require('../utils/authenticator');
 const atome = require('../utils/atome');
+const mailer = require('../utils/mailer');
+const { getCompanySettings } = require('../utils/companySettings');
 
 router.get('/order/:oid', authenticate, async (req, res) => {
   try {
@@ -137,7 +139,7 @@ router.post('/:pid/atome/checkout', authenticate, async (req, res) => {
       delivery,
       items: details.map((d) => ({
         product_id: d.product_id,
-        name: d.Product?.name || `Item ${d.product_id}`,
+        name: d.product?.name || `Item ${d.product_id}`,
         quantity: d.quantity,
         price: d.price
       })),
@@ -190,7 +192,47 @@ router.post('/atome/webhook', async (req, res) => {
     await payment.update(updates);
 
     if (nextStatus === 'completed') {
-      await Order.update({ status: 'paid' }, { where: { id: payment.order_id } });
+      const order = await Order.update(
+        { status: 'paid' },
+        { where: { id: payment.order_id }, returning: true }
+      ).then(() => Order.findByPk(payment.order_id));
+
+      // The customer's order-confirmation email is deliberately NOT sent at
+      // checkout time for Atome (see routes/order.js POST /) — it only goes
+      // out once payment is genuinely confirmed, here.
+      const [user, delivery, details] = await Promise.all([
+        User.findByPk(order.user_id),
+        OrderDelivery.findOne({ where: { order_id: order.id } }),
+        OrderDetail.findAll({
+          where: { order_id: order.id },
+          include: [{ model: Product, attributes: ['name'] }]
+        })
+      ]);
+
+      if (user) {
+        mailer.sendOrderConfirmationMail(
+          user,
+          order,
+          details.map((d) => ({
+            name: d.product?.name || `Item ${d.product_id}`,
+            quantity: d.quantity,
+            price: d.price
+          })),
+          {
+            paymentMethod: 'Atome',
+            company: getCompanySettings(),
+            delivery: delivery
+              ? {
+                  firstName: delivery.first_name,
+                  lastName: delivery.last_name,
+                  address: delivery.delivery_address,
+                  postal: delivery.delivery_postal,
+                  contact: delivery.contact
+                }
+              : null
+          }
+        );
+      }
     }
 
     return res.status(200).json({ received: true });

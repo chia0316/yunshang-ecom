@@ -9,6 +9,12 @@ type ReturnState = 'polling' | 'completed' | 'failed' | 'timeout';
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 60000;
+// After the visible "still confirming" message, keep quietly checking at a
+// slower pace instead of giving up outright — a late webhook (or admin
+// reconciling it manually) should still clear the cart and flip the page to
+// "confirmed" on its own, without the customer having to notice or do
+// anything, as long as they're still on this page.
+const BACKGROUND_POLL_INTERVAL_MS = 15000;
 
 // Atome redirects the browser back here after the customer pays, fails, or
 // cancels on its hosted page — but that redirect is never treated as proof
@@ -25,8 +31,24 @@ const AtomeReturnPage: React.FC = () => {
   const [state, setState] = useState<ReturnState>(cancelled ? 'failed' : 'polling');
   const startedAt = useRef(Date.now());
 
+  // A cancelled or failed Atome attempt never gets a second chance on the
+  // same order — "Back to Checkout" always starts a fresh one (see
+  // CheckoutPage's openAtomeCheckout) — so there's nothing useful left to do
+  // with it. Best-effort cleanup, same as PayNow's cancelPendingOrder: the
+  // backend also tells Atome to cancel the payment on its side (routes/
+  // order.js DELETE /:oid), so it doesn't sit as a live PROCESSING payment
+  // in their system for up to 12h.
+  const cleanupOrder = () => {
+    if (!orderId) return;
+    apiFetch(`/api/orders/${orderId}`, { method: 'DELETE' }).catch(() => undefined);
+  };
+
   useEffect(() => {
-    if (cancelled || !orderId) return;
+    if (cancelled) {
+      cleanupOrder();
+      return;
+    }
+    if (!orderId) return;
 
     let cancelledEffect = false;
     const poll = async () => {
@@ -41,19 +63,20 @@ const AtomeReturnPage: React.FC = () => {
           return;
         }
         if (atomePayment.status === 'failed') {
+          cleanupOrder();
           setState('failed');
           return;
         }
-        if (Date.now() - startedAt.current > POLL_TIMEOUT_MS) {
-          setState('timeout');
-          return;
-        }
-        setTimeout(poll, POLL_INTERVAL_MS);
+        // Past the visible timeout, don't stop — just slow down and keep
+        // checking silently (see BACKGROUND_POLL_INTERVAL_MS above).
+        const pastTimeout = Date.now() - startedAt.current > POLL_TIMEOUT_MS;
+        if (pastTimeout) setState('timeout');
+        setTimeout(poll, pastTimeout ? BACKGROUND_POLL_INTERVAL_MS : POLL_INTERVAL_MS);
       } catch {
-        if (!cancelledEffect && Date.now() - startedAt.current < POLL_TIMEOUT_MS) {
-          setTimeout(poll, POLL_INTERVAL_MS);
-        } else if (!cancelledEffect) {
-          setState('timeout');
+        if (!cancelledEffect) {
+          const pastTimeout = Date.now() - startedAt.current > POLL_TIMEOUT_MS;
+          if (pastTimeout) setState('timeout');
+          setTimeout(poll, pastTimeout ? BACKGROUND_POLL_INTERVAL_MS : POLL_INTERVAL_MS);
         }
       }
     };
@@ -62,6 +85,7 @@ const AtomeReturnPage: React.FC = () => {
     return () => {
       cancelledEffect = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, cancelled]);
 
   return (

@@ -18,6 +18,7 @@ const { authenticate } = require('../utils/authenticator');
 const { getCompanySettings } = require('../utils/companySettings');
 const { resolveCoupon } = require('../utils/coupons');
 const { formatOrderNumber } = require('../utils/orderNumber');
+const atome = require('../utils/atome');
 
 // "Sofa - 5279 L Shape" + { Material: "Solana" } -> "Sofa - 5279 L Shape — Solana"
 // Mirrors withVariantLabel in cust-FE/src/context/CartContext.tsx — used
@@ -32,7 +33,7 @@ const withVariantLabel = (name, variantOptions) => {
 // the full Payment.method ENUM — NETS/Card are defined there for a future
 // gateway but aren't offered to customers yet, so an order claiming one of
 // them today is bogus, not a legitimate checkout.
-const ALLOWED_PAYMENT_METHODS = ['PayNow', 'Cash'];
+const ALLOWED_PAYMENT_METHODS = ['PayNow', 'Cash', 'Atome'];
 
 // Shared by the order list and the Excel export — same status/search/date
 // filters should apply to both.
@@ -438,11 +439,19 @@ router.post('/', authenticate, async (req, res) => {
 
     const userData = await User.findByPk(req.userId);
     const company = getCompanySettings();
-    mailer.sendOrderConfirmationMail(userData, newOrder, orderDetails_list, {
-      paymentMethod,
-      company,
-      delivery: { firstName, lastName, address: deliveryAddress, postal: deliveryPostal, contact }
-    });
+    // Atome is a real gateway — the order isn't actually confirmed until its
+    // payment completes, so the customer's confirmation email waits for that
+    // (see routes/payment.js POST /atome/webhook) instead of firing here,
+    // before they've even reached Atome's checkout page. PayNow/Cash stay
+    // immediate: both are "pending, pay this way" emails by design, not a
+    // confirmation of a completed payment.
+    if (paymentMethod !== 'Atome') {
+      mailer.sendOrderConfirmationMail(userData, newOrder, orderDetails_list, {
+        paymentMethod,
+        company,
+        delivery: { firstName, lastName, address: deliveryAddress, postal: deliveryPostal, contact }
+      });
+    }
     mailer.sendOrderNotificationMail(newOrder, userData, orderDetails_list, paymentMethod, company);
 
     return res.status(201).json({ order: newOrder, payment });
@@ -545,6 +554,22 @@ router.delete('/:oid', authenticate, async (req, res) => {
     if (req.isAdmin) {
       await order.update({ deleted_by_admin_id: req.userId });
     }
+
+    // An abandoned Atome checkout (customer backs out / the QR times out)
+    // leaves the payment "PROCESSING" on Atome's side for up to 12h
+    // otherwise — tell Atome to cancel it too, not just locally, same
+    // spirit as how this route already cleans up an abandoned PayNow order.
+    // Best-effort: a failed cancel call here shouldn't block the customer
+    // from backing out of checkout.
+    const payment = await Payment.findOne({ where: { order_id: order.id, method: 'Atome' } });
+    if (payment && payment.status === 'pending' && payment.gateway_reference) {
+      try {
+        await atome.cancel(payment.gateway_reference);
+      } catch (err) {
+        console.error('[atome] cancel on order delete failed', err.response?.data || err.message);
+      }
+    }
+
     await order.destroy();
     return res.json({ message: 'Order deleted successfully!', success: true });
   } catch (err) {
