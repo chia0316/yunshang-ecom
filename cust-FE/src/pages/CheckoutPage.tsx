@@ -11,8 +11,12 @@ import type { Order } from '../lib/types';
 
 const PAYMENT_METHODS = ['PayNow', 'NETS', 'Card', 'Cash', 'Atome'] as const;
 
-// NETS and Card aren't live yet — only these are offered at checkout for now.
-const ENABLED_PAYMENT_METHODS: (typeof PAYMENT_METHODS)[number][] = ['PayNow', 'Cash', 'Atome'];
+// NETS and Card aren't live yet. Atome is built and deployed (backend +
+// webhook) but deliberately kept off this list until real production
+// credentials are configured — the integration currently only has sandbox
+// credentials, so a customer picking it in production would hit a hard
+// failure at checkout. Re-add 'Atome' here once production keys are set.
+const ENABLED_PAYMENT_METHODS: (typeof PAYMENT_METHODS)[number][] = ['PayNow', 'Cash'];
 
 // PayNow and Cash are confirmed manually by an admin after the fact (QR scan
 // / pay-at-office respectively). Atome is NOT manual — its Payment status is
