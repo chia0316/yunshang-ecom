@@ -171,7 +171,14 @@ router.post('/atome/webhook', async (req, res) => {
 
     const { referenceId } = req.body || {};
     if (!referenceId) {
-      return res.status(400).json({ error: 'referenceId missing' });
+      // Not an error — this is also what a bare connectivity/health ping
+      // looks like, e.g. Atome's own "Check Configuration" (POST /auth
+      // with a callbackUrl) connectivity check, which identifies "any 20x
+      // status" as success and has no real payment event to describe.
+      // Failing this with a 400 would make Atome's own official way of
+      // verifying our webhook report a working endpoint as broken.
+      console.warn('[atome] webhook ping with no referenceId (likely a connectivity check)');
+      return res.status(200).json({ received: true });
     }
 
     const payment = await Payment.findOne({ where: { gateway_reference: referenceId } });
